@@ -151,6 +151,9 @@
     @apply font-sans;
     -webkit-font-smoothing: antialiased;
     text-size-adjust: 100%;
+    /* a barra fixa do rodapé do wizard tem ~6rem: sem isso o navegador
+       encosta o campo focado atrás dela ao tabular ou abrir o teclado */
+    scroll-padding-bottom: 6rem;
   }
   body {
     @apply bg-background text-foreground;
