@@ -77,7 +77,12 @@ function PlanoCompleto({ plano }: { plano: Plano }) {
       ) : (
         <Destino aporte={plano.aporte} livre={plano.livre} alocacoes={plano.alocacoes} />
       )}
-      <Detalhes folego={plano.folego} reserva={plano.reserva} dividas={plano.dividas} />
+      <Detalhes
+        folego={plano.folego}
+        reserva={plano.reserva}
+        dividas={plano.dividas}
+        gastosFixos={plano.gastosFixos}
+      />
       <ProximosPassos passos={plano.proximosPassos} />
       <Acoes />
       <Aviso />

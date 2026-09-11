@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
+import { IconeCategoria } from "@/components/categorias/icone-categoria";
 import {
   ROTULO_DIVIDA,
   type ClasseDivida,
   type DividaAvaliada,
   type Folego,
+  type GastoFixoDetalhado,
   type QuadroDividas,
   type Reserva,
 } from "@/domain";
@@ -20,9 +22,10 @@ type DetalhesProps = {
   folego: Folego;
   reserva: Reserva;
   dividas: QuadroDividas;
+  gastosFixos: GastoFixoDetalhado[];
 };
 
-export function Detalhes({ folego, reserva, dividas }: DetalhesProps) {
+export function Detalhes({ folego, reserva, dividas, gastosFixos }: DetalhesProps) {
   return (
     <section aria-labelledby="detalhes-titulo">
       <h2 id="detalhes-titulo" className="text-lg font-extrabold tracking-tight sm:text-xl">
@@ -31,9 +34,46 @@ export function Detalhes({ folego, reserva, dividas }: DetalhesProps) {
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <CardFolego folego={folego} />
         <CardReserva reserva={reserva} />
+        {gastosFixos.length > 0 && <CardGastosFixos gastos={gastosFixos} />}
         {dividas.avaliadas.length > 0 && <CardDividas dividas={dividas} />}
       </div>
     </section>
+  );
+}
+
+function CardGastosFixos({ gastos }: { gastos: GastoFixoDetalhado[] }) {
+  const total = gastos.reduce((acc, g) => acc + g.valor, 0);
+
+  return (
+    <Card className="md:col-span-2">
+      <div className="flex items-baseline justify-between gap-4">
+        <h3 className="font-extrabold tracking-tight">Gastos fixos</h3>
+        <p className="font-bold tnum">{formatBRL(total)}/mês</p>
+      </div>
+      <p className="text-xs text-muted-foreground">Do maior pro menor</p>
+
+      <ul className="mt-3 grid gap-2">
+        {gastos.map((g, i) => (
+          <li key={`${g.categoria}-${i}`} className="grid gap-1.5">
+            <div className="grid grid-cols-[auto_1fr_auto] items-baseline gap-3">
+              <IconeCategoria icone={g.icone} className="size-4 translate-y-0.5 text-primary" />
+              <p className="min-w-0 truncate text-sm font-bold">{g.nomeExibido}</p>
+              <p className="text-right text-sm font-bold tnum">
+                {formatBRL(g.valor)}
+                <span className="ml-2 font-normal text-muted-foreground">{formatPct(g.fatia)}</span>
+              </p>
+            </div>
+            {/* a barra é decorativa: a fatia já está escrita ao lado */}
+            <div aria-hidden="true" className="ml-7 h-1.5 rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary/60"
+                style={{ width: `${Math.max(2, Math.round(g.fatia * 100))}%` }}
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }
 
