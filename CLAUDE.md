@@ -13,7 +13,7 @@ Planejador financeiro gratuito, em pt-BR, pra quem está começando a trabalhar 
 
 ## Estrutura
 
-- `src/domain/` — motor puro, sem React e sem I/O. `types` (Perfil, Plano…), `config` (constantes com o porquê), `motor` (a cascata: `gerarPlano`), `textos` (toda frase do plano), `schema` (zod + `validarPerfil`), `projecao` (metas). Importar sempre via `@/domain`.
+- `src/domain/` — motor puro, sem React e sem I/O. `types` (Perfil, Plano…), `config` (constantes com o porquê), `motor` (a cascata: `gerarPlano`), `textos` (toda frase do plano), `schema` (zod + `validarPerfil`), `projecao` (metas), `categorias` (catálogo de gastos fixos). Importar sempre via `@/domain`.
 - `src/lib/` — `format` (formatBRL, formatPct, formatMeses, parseBRL, mascaraInteiroBRL), `storage` (localStorage seguro: readJSON/writeJSON/removeKey + STORAGE_KEYS), `utils` (cn).
 - `src/components/ui/` — shadcn estilo base-nova sobre `@base-ui/react`. `brand/logo` (`<Logo />`, `<LogoMark />`). Componentes de página em `home/`, `onboarding/`, `resultado/`.
 - `src/app/` — `/` home · `/plano` onboarding (8 perguntas, uma por tela, passo em `?p=N`) · `/plano/resultado`.
@@ -23,6 +23,17 @@ Planejador financeiro gratuito, em pt-BR, pra quem está começando a trabalhar 
 Todo excedente do mês desce nesta ordem; um degrau só recebe quando o anterior está satisfeito:
 `00 fôlego mínimo → 01 dívida cara (>30% a.a.) → 02 reserva (3× ou 6× custos) → 03 dívida média → 04 metas`.
 Se excedente ≤ 0, o plano é de corte, não de aporte. O plano separa `aporte` (vai pra cascata) de `livre` (gasto variável, sem culpa).
+
+## Gastos fixos
+
+Não existe um campo único somando tudo: a pessoa escolhe categorias e informa o valor de cada uma (`Perfil.gastosFixos`). É isso que deixa o plano de corte dizer **onde** cortar, e não só quanto. `Resumo.custoFixo` é a soma, derivada pelo motor.
+
+O catálogo vive em `src/domain/categorias.ts` e é a fonte da verdade. Cada categoria tem `slug`, `nome`, `grupo` e `icone` (nome do componente lucide, desenhado por `components/categorias/icone-categoria.tsx` — ícone desconhecido cai no padrão `Tag`).
+
+- **Slug publicado nunca muda**: já está no localStorage de quem usou. Para aposentar uma categoria, tire da lista; não renomeie o slug.
+- Mexeu no catálogo? Espelhe em `dindinBackend/prisma/categorias.ts` e rode `yarn db:seed` lá.
+- O grupo `moradia` fica fora do onboarding: moradia é a pergunta 5, com lógica própria de pulo.
+- `SLUG_OUTRO` é a categoria livre — a pessoa dá o nome e o ícone é o padrão. É o único slug que pode repetir na mesma lista.
 
 ## Regras de produto
 
