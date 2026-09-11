@@ -2,6 +2,7 @@ import type { Moradia, TipoRenda } from "@/domain";
 import { cn } from "@/lib/utils";
 import { ChipsValor } from "./chips";
 import { DividasEditor } from "./dividas-editor";
+import { GastosEditor } from "./gastos-editor";
 import { MoneyInput } from "./money-input";
 import { NumberInput } from "./number-input";
 import { OptionCards } from "./option-cards";
@@ -169,18 +170,17 @@ export function PassoControle({ passo, respostas, onChange, erro, ids, described
         />
       );
 
-    case "custoFixo":
+    case "gastosFixos":
       return (
-        <CampoValor
-          passo={passo}
-          valores={[500, 900, 1400, 2000]}
-          value={respostas.custoFixo}
-          onChange={(custoFixo) => onChange({ custoFixo })}
-          erro={erro}
-          ids={ids}
-          describedBy={describedBy}
-          invalid={invalid}
-        />
+        <>
+          <GastosEditor
+            gastos={respostas.gastosFixos}
+            onChange={(gastosFixos) => onChange({ gastosFixos })}
+            legend={passo.pergunta}
+            describedBy={describedBy}
+          />
+          <LinhaErro id={ids.erro} erro={erro} />
+        </>
       );
 
     case "dividas":

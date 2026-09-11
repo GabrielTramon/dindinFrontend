@@ -1,7 +1,10 @@
 import {
   MAX_DIVIDAS,
+  MAX_GASTOS_FIXOS,
   MORADIAS,
   MORADIAS_SEM_CUSTO,
+  SLUGS_CATEGORIA,
+  SLUG_OUTRO,
   TIPOS_DIVIDA,
   TIPOS_RENDA,
   type Moradia,
@@ -23,12 +26,20 @@ export interface DividaRascunho {
   parcela?: number;
 }
 
+/** Um gasto fixo ainda sendo preenchido: o valor (e o nome, quando livre) podem faltar. */
+export interface GastoRascunho {
+  categoria: string;
+  nome?: string;
+  valor?: number;
+}
+
 /**
- * Respostas parciais. `dividas` tem três estados:
- * undefined (não respondeu), [] ("não devo nada") e lista (tem dívida).
+ * Respostas parciais. `dividas` e `gastosFixos` têm três estados cada:
+ * undefined (não respondeu), [] ("não tenho") e lista preenchida.
  */
-export type Respostas = Omit<Partial<PerfilInput>, "dividas"> & {
+export type Respostas = Omit<Partial<PerfilInput>, "dividas" | "gastosFixos"> & {
   dividas?: DividaRascunho[];
+  gastosFixos?: GastoRascunho[];
 };
 
 export function moradiaSemCusto(moradia: Moradia | undefined): boolean {
@@ -51,6 +62,20 @@ function dividasDe(v: unknown): DividaRascunho[] | undefined {
   });
 }
 
+function gastosDe(v: unknown): GastoRascunho[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  return v
+    .slice(0, MAX_GASTOS_FIXOS)
+    .map((item: unknown): GastoRascunho | null => {
+      const g = typeof item === "object" && item !== null ? (item as Record<string, unknown>) : {};
+      const categoria = entre(SLUGS_CATEGORIA, g.categoria);
+      const nome = typeof g.nome === "string" ? g.nome.slice(0, 40) : undefined;
+      return categoria === undefined ? null : { categoria, nome, valor: numero(g.valor) };
+    })
+    // categoria desconhecida: catálogo mudou desde que a pessoa respondeu — a linha some
+    .filter((g): g is GastoRascunho => g !== null);
+}
+
 /** O que vem do localStorage é de outra sessão, talvez de outra versão: só entra o que faz sentido. */
 export function sanearRespostas(bruto: unknown): Respostas {
   if (typeof bruto !== "object" || bruto === null) return {};
@@ -61,7 +86,7 @@ export function sanearRespostas(bruto: unknown): Respostas {
     idade: numero(o.idade),
     moradia: entre(MORADIAS, o.moradia),
     custoMoradia: numero(o.custoMoradia),
-    custoFixo: numero(o.custoFixo),
+    gastosFixos: gastosDe(o.gastosFixos),
     dividas: dividasDe(o.dividas),
     guardado: numero(o.guardado),
   };
@@ -80,7 +105,17 @@ export function lerRespostasSalvas(): RespostasSalvas {
   return { respostas: sanearRespostas(readJSON<unknown>(STORAGE_KEYS.perfil, null)), emAndamento: false };
 }
 
-/** Objeto pronto pra `validarPerfil`: moradia sem custo zera o custo de moradia. */
+/**
+ * Objeto pronto pra `validarPerfil`: moradia sem custo zera o custo de moradia,
+ * e o nome em branco de uma categoria livre vira ausente (o schema cobra).
+ */
 export function montarPerfil(r: Respostas): Respostas {
-  return { ...r, custoMoradia: moradiaSemCusto(r.moradia) ? 0 : r.custoMoradia };
+  return {
+    ...r,
+    custoMoradia: moradiaSemCusto(r.moradia) ? 0 : r.custoMoradia,
+    gastosFixos: r.gastosFixos?.map((g) => ({
+      ...g,
+      nome: g.categoria === SLUG_OUTRO ? g.nome?.trim() || undefined : undefined,
+    })),
+  };
 }

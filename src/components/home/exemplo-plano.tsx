@@ -14,7 +14,13 @@ const PERFIL_EXEMPLO: Perfil = {
   idade: 24,
   moradia: "dividido",
   custoMoradia: 700,
-  custoFixo: 900,
+  gastosFixos: [
+    { categoria: "mercado", valor: 450 },
+    { categoria: "transporte_publico", valor: 200 },
+    { categoria: "celular", valor: 90 },
+    { categoria: "academia", valor: 120 },
+    { categoria: "streaming", valor: 40 },
+  ],
   dividas: [{ tipo: "rotativo", saldo: 1500 }],
   guardado: 1000,
 };

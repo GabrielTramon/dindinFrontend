@@ -1,4 +1,4 @@
-import { perfilSchema, type PerfilInput } from "@/domain";
+import { perfilSchema, SLUG_OUTRO, type PerfilInput } from "@/domain";
 import { moradiaSemCusto, type Respostas } from "./respostas";
 
 /*
@@ -36,6 +36,7 @@ function campo(id: PassoId): Pick<Passo, "valido" | "erro"> {
 
 const idade = campo("idade");
 const dividas = campo("dividas");
+const gastosFixos = campo("gastosFixos");
 
 export const PASSOS: readonly Passo[] = [
   {
@@ -69,10 +70,19 @@ export const PASSOS: readonly Passo[] = [
     pular: (r) => moradiaSemCusto(r.moradia),
   },
   {
-    id: "custoFixo",
-    pergunta: "Fora moradia, quanto some todo mês sem você escolher?",
-    ajuda: "Mercado, transporte, celular, internet, academia, assinaturas. Chute uma soma — dá pra ajustar depois.",
-    ...campo("custoFixo"),
+    id: "gastosFixos",
+    pergunta: "Fora moradia, o que sai todo mês?",
+    ajuda: "Escolha o que você tem e diga quanto sai em cada um. Chute os valores — dá pra ajustar depois.",
+    valido: gastosFixos.valido,
+    // uma linha pela metade é preenchimento em andamento, não erro: só fala quando todas estão completas
+    erro: (r) =>
+      r.gastosFixos !== undefined &&
+      r.gastosFixos.length > 0 &&
+      r.gastosFixos.every(
+        (g) => g.valor !== undefined && (g.categoria !== SLUG_OUTRO || (g.nome?.trim() ?? "") !== ""),
+      )
+        ? gastosFixos.erro?.(r)
+        : undefined,
   },
   {
     id: "dividas",
