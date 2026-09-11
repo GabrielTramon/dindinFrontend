@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { LIMIAR_DIVIDA_CARA, PROPORCAO_APORTE } from "./config";
 import { avaliarDividas, gerarPlano, simularQuitacao } from "./motor";
 import type { Perfil } from "./types";
+/** Açúcar dos testes: um gasto fixo único, pra cenários que só olham o total. */
+const gastos = (valor: number) => (valor > 0 ? [{ categoria: "mercado", valor }] : []);
+
 
 /*
   As projeções seguem o caminho da cascata, não só o mês atual.
@@ -15,7 +18,7 @@ const base: Perfil = {
   idade: 24,
   moradia: "aluguel",
   custoMoradia: 1000,
-  custoFixo: 800,
+  gastosFixos: gastos(800),
   dividas: [],
   guardado: 0,
 };
@@ -75,14 +78,14 @@ describe("projeção da reserva", () => {
   });
 
   it("custos zero: fôlego e reserva coincidem e fecham no mesmo mês", () => {
-    const p = gerarPlano({ ...base, moradia: "pais", custoMoradia: 0, custoFixo: 0 });
+    const p = gerarPlano({ ...base, moradia: "pais", custoMoradia: 0, gastosFixos: gastos(0) });
     expect(p.folego.alvo).toBe(300);
     expect(p.reserva.alvo).toBe(300);
     expect(p.reserva.mesesParaCompletar).toBe(1);
   });
 
   it("em modo corte não há projeção", () => {
-    const p = gerarPlano({ ...base, custoFixo: 2500, dividas: [{ tipo: "rotativo", saldo: 500 }] });
+    const p = gerarPlano({ ...base, gastosFixos: gastos(2500), dividas: [{ tipo: "rotativo", saldo: 500 }] });
     expect(p.modoCorte).toBe(true);
     expect(p.reserva.mesesParaCompletar).toBeNull();
     expect(p.dividas.mesesParaQuitarCaras).toBeNull();

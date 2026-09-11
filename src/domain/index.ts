@@ -1,12 +1,24 @@
 export * from "./types";
 export * from "./config";
-export { gerarPlano, avaliarDividas, simularQuitacao, taxaMensal } from "./motor";
+export {
+  CATEGORIAS,
+  CATEGORIAS_DO_ONBOARDING,
+  GRUPOS_DO_ONBOARDING,
+  ICONE_PADRAO,
+  ROTULO_GRUPO,
+  SLUGS_CATEGORIA,
+  SLUG_OUTRO,
+  categoriaPorSlug,
+} from "./categorias";
+export type { Categoria, GrupoCategoria } from "./categorias";
+export { gerarPlano, avaliarDividas, detalharGastos, simularQuitacao, taxaMensal } from "./motor";
 export type { OpcoesMotor, Cronograma } from "./motor";
 export { projetarSaldo, mesesParaMeta, aporteParaMeta, serieProjecao } from "./projecao";
 export type { ParametrosProjecao, PontoProjecao } from "./projecao";
 export {
   perfilSchema,
   dividaSchema,
+  gastoFixoSchema,
   validarPerfil,
   TIPOS_RENDA,
   MORADIAS,

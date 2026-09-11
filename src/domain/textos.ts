@@ -4,6 +4,7 @@ import type {
   Degrau,
   DividaAvaliada,
   Folego,
+  GastoFixoDetalhado,
   Perfil,
   PlanoDeCorte,
   QuadroDividas,
@@ -191,6 +192,13 @@ const corte = {
     `Moradia leva ${formatPct(custo / renda)} da sua renda — acima de 30% é o maior peso do orçamento. Vale olhar dividir, negociar ou mudar.`,
   assinaturas: () =>
     "Liste tudo que sai automático (assinaturas, apps, planos) e cancele o que não usou nos últimos 30 dias.",
+  maioresGastos: (maiores: GastoFixoDetalhado[]) => {
+    const lista = maiores.map((g) => `${g.nomeExibido} (${formatBRL(g.valor)})`);
+    const enumerado =
+      lista.length === 1 ? lista[0] : `${lista.slice(0, -1).join(", ")} e ${lista.at(-1)}`;
+    const maior = maiores[0];
+    return `Onde o dinheiro está indo: ${enumerado}. Comece pelo maior — tirar um quinto de ${maior.nomeExibido} já libera ${formatBRL(maior.valor * 0.2)} por mês.`;
+  },
   rendaExtra: (metaCorte: number) =>
     `Pelo lado da renda: ${formatBRL(metaCorte)} a mais no mês — um freela, uma hora extra, uma venda — já fecha a conta enquanto os cortes não chegam.`,
   meta: (metaCorte: number, renda: number, deficit: number) =>

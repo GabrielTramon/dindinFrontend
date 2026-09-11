@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { MAX_DIVIDAS } from "./config";
+import { MAX_DIVIDAS, MAX_GASTOS_FIXOS } from "./config";
 import { MORADIAS, MORADIAS_SEM_CUSTO, TIPOS_DIVIDA, TIPOS_RENDA, perfilSchema, validarPerfil } from "./schema";
+/** Açúcar dos testes: um gasto fixo único, pra cenários que só olham o total. */
+const gastos = (valor: number) => (valor > 0 ? [{ categoria: "mercado", valor }] : []);
+
 
 /*
   validarPerfil: ou o perfil válido, ou um mapa caminho → primeira mensagem (pt-BR).
@@ -13,7 +16,7 @@ const valido = {
   idade: 22,
   moradia: "pais",
   custoMoradia: 0,
-  custoFixo: 900,
+  gastosFixos: gastos(900),
   dividas: [],
   guardado: 0,
 };
@@ -117,10 +120,60 @@ describe("validarPerfil — erros por campo, em pt-BR", () => {
   });
 
   it("custos e guardado negativos", () => {
-    const e = erros({ ...valido, custoMoradia: -1, custoFixo: -1, guardado: -1 });
+    const e = erros({ ...valido, custoMoradia: -1, guardado: -1 });
     expect(e.custoMoradia).toBe("Não pode ser negativo");
-    expect(e.custoFixo).toBe("Não pode ser negativo");
     expect(e.guardado).toBe("Não pode ser negativo");
+  });
+
+  describe("gastos fixos", () => {
+    it("categoria fora do catálogo", () => {
+      const e = erros({ ...valido, gastosFixos: [{ categoria: "jatinho", valor: 100 }] });
+      expect(e["gastosFixos.0.categoria"]).toBe("Categoria desconhecida");
+    });
+
+    it("valor zero ou negativo não é gasto", () => {
+      expect(erros({ ...valido, gastosFixos: [{ categoria: "mercado", valor: 0 }] })["gastosFixos.0.valor"]).toBe(
+        "O valor precisa ser maior que zero",
+      );
+      expect(erros({ ...valido, gastosFixos: [{ categoria: "mercado", valor: -5 }] })["gastosFixos.0.valor"]).toBe(
+        "O valor precisa ser maior que zero",
+      );
+    });
+
+    it("categoria livre exige nome", () => {
+      const e = erros({ ...valido, gastosFixos: [{ categoria: "outro", valor: 80 }] });
+      expect(e["gastosFixos.0.nome"]).toBe("Dê um nome pra esse gasto");
+    });
+
+    it("categoria livre com nome passa", () => {
+      const r = validarPerfil({
+        ...valido,
+        gastosFixos: [{ categoria: "outro", nome: "Mensalidade do clube", valor: 80 }],
+      });
+      expect(r.ok).toBe(true);
+    });
+
+    it("nome longo demais", () => {
+      const e = erros({
+        ...valido,
+        gastosFixos: [{ categoria: "outro", nome: "x".repeat(41), valor: 80 }],
+      });
+      expect(e["gastosFixos.0.nome"]).toBe("No máximo 40 caracteres");
+    });
+
+    it("acima do teto de linhas", () => {
+      const muitos = Array.from({ length: MAX_GASTOS_FIXOS + 1 }, () => ({
+        categoria: "mercado",
+        valor: 10,
+      }));
+      expect(erros({ ...valido, gastosFixos: muitos }).gastosFixos).toBe(
+        `No máximo ${MAX_GASTOS_FIXOS} gastos fixos`,
+      );
+    });
+
+    it("lista vazia é válida: dá pra não ter gasto fixo nenhum", () => {
+      expect(validarPerfil({ ...valido, gastosFixos: [] }).ok).toBe(true);
+    });
   });
 
   it("guardado ausente pede o valor (pode ser 0)", () => {

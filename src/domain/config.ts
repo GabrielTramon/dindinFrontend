@@ -66,3 +66,9 @@ export const LIMIAR_MORADIA_PESADA = 0.3;
 export const MESES_SIMULACAO_MAX = 600;
 
 export const MAX_DIVIDAS = 6;
+
+/** Teto de linhas de gasto fixo. Acima disso a pessoa está fazendo planilha, não plano. */
+export const MAX_GASTOS_FIXOS = 20;
+
+/** Quantos gastos o plano de corte nomeia como "os maiores". */
+export const MAIORES_GASTOS_NO_CORTE = 3;

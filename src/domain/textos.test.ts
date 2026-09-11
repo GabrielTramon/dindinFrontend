@@ -3,6 +3,9 @@ import { formatBRL } from "@/lib/format";
 import { gerarPlano } from "./motor";
 import { NOME_DIVIDA, ROTULO_DEGRAU, ROTULO_DIVIDA } from "./textos";
 import type { Degrau, Perfil, Plano } from "./types";
+/** Açúcar dos testes: um gasto fixo único, pra cenários que só olham o total. */
+const gastos = (valor: number) => (valor > 0 ? [{ categoria: "mercado", valor }] : []);
+
 
 /*
   Tudo que o plano diz em palavras. Dois limites do produto:
@@ -16,7 +19,7 @@ const base: Perfil = {
   idade: 22,
   moradia: "pais",
   custoMoradia: 0,
-  custoFixo: 900,
+  gastosFixos: gastos(900),
   dividas: [],
   guardado: 0,
 };
@@ -31,12 +34,12 @@ const porDegrau: Record<Degrau, Perfil> = {
   4: perfil({ guardado: 10000 }),
 };
 const corte = {
-  simples: perfil({ rendaMensal: 1500, custoFixo: 1700 }),
+  simples: perfil({ rendaMensal: 1500, gastosFixos: gastos(1700) }),
   completo: perfil({
     rendaMensal: 2000,
     moradia: "aluguel",
     custoMoradia: 900,
-    custoFixo: 1200,
+    gastosFixos: gastos(1200),
     dividas: [
       { tipo: "rotativo", saldo: 3000 },
       { tipo: "cheque_especial", saldo: 500 },
@@ -44,13 +47,13 @@ const corte = {
   }),
 };
 const extras = [
-  perfil({ rendaMensal: 1600, custoFixo: 0 }),
+  perfil({ rendaMensal: 1600, gastosFixos: gastos(0) }),
   perfil({ rendaMensal: 2000, dividas: [{ tipo: "rotativo", saldo: 30000 }], guardado: 1000 }),
   perfil({
     rendaMensal: 3000,
     moradia: "aluguel",
     custoMoradia: 1000,
-    custoFixo: 800,
+    gastosFixos: gastos(800),
     dividas: [
       { tipo: "rotativo", saldo: 1000 },
       { tipo: "emprestimo", saldo: 3000, parcela: 200 },
@@ -171,7 +174,7 @@ describe("proximosPassos", () => {
     expect(c.sugestoes).toHaveLength(4);
     expect(c.sugestoes[0]).toMatch(/^Renegociar o rotativo/);
     expect(c.sugestoes[1]).toMatch(/^Moradia leva 45%/);
-    expect(c.sugestoes[2]).toContain("assinaturas");
+    expect(c.sugestoes[2]).toContain("Onde o dinheiro está indo");
     expect(c.sugestoes[3]).toMatch(/^Pelo lado da renda/);
     expect(c.metaTexto).toMatch(/^Meta do mês/);
   });

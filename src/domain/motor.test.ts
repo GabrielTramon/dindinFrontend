@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { avaliarDividas, gerarPlano, simularQuitacao, taxaMensal } from "./motor";
 import type { Perfil } from "./types";
+/** Açúcar dos testes: um gasto fixo único, pra cenários que só olham o total. */
+const gastos = (valor: number) => (valor > 0 ? [{ categoria: "mercado", valor }] : []);
+
 
 /*
   Teste de fumaça do motor. Cenários da persona (18–30, começando a trabalhar).
@@ -13,7 +16,7 @@ const base: Perfil = {
   idade: 22,
   moradia: "pais",
   custoMoradia: 0,
-  custoFixo: 900,
+  gastosFixos: gastos(900),
   dividas: [],
   guardado: 0,
 };
@@ -75,7 +78,7 @@ describe("gerarPlano — cascata", () => {
       rendaMensal: 3000,
       moradia: "aluguel",
       custoMoradia: 1000,
-      custoFixo: 800,
+      gastosFixos: gastos(800),
       dividas: [{ tipo: "rotativo", saldo: 2000 }],
       guardado: 1000,
     });
@@ -89,7 +92,7 @@ describe("gerarPlano — cascata", () => {
   });
 
   it("custos maiores que a renda → modo corte, aporte zero", () => {
-    const p = gerarPlano({ ...base, rendaMensal: 1500, custoFixo: 1700 });
+    const p = gerarPlano({ ...base, rendaMensal: 1500, gastosFixos: gastos(1700) });
     expect(p.modoCorte).toBe(true);
     expect(p.aporte).toBe(0);
     expect(p.livre).toBe(0);

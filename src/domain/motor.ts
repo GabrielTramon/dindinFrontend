@@ -1,8 +1,10 @@
+import { categoriaPorSlug, ICONE_PADRAO } from "./categorias";
 import {
   FOLEGO_PISO,
   FOLEGO_TETO,
   LIMIAR_DIVIDA_CARA,
   LIMIAR_MORADIA_PESADA,
+  MAIORES_GASTOS_NO_CORTE,
   MARGEM_MINIMA_CORTE,
   MESES_SIMULACAO_MAX,
   MULTIPLICADOR_RESERVA,
@@ -17,6 +19,8 @@ import type {
   Divida,
   DividaAvaliada,
   Folego,
+  GastoFixo,
+  GastoFixoDetalhado,
   Perfil,
   Plano,
   PlanoDeCorte,
@@ -151,13 +155,33 @@ export function simularQuitacao(dividas: DividaAvaliada[], cronograma: Cronogram
   return null;
 }
 
-function montarResumo(perfil: Perfil, parcelas: number): Resumo {
-  const custoTotal = arredondar(perfil.custoMoradia + perfil.custoFixo + parcelas);
+/**
+ * Resolve nome e ícone de cada gasto e ordena do maior pro menor — é assim
+ * que a tela mostra e é assim que o plano de corte escolhe por onde começar.
+ */
+export function detalharGastos(gastos: GastoFixo[]): GastoFixoDetalhado[] {
+  const total = soma(gastos.map((g) => g.valor));
+  return gastos
+    .filter((g) => g.valor > 0)
+    .map<GastoFixoDetalhado>((g) => {
+      const cat = categoriaPorSlug(g.categoria);
+      return {
+        ...g,
+        nomeExibido: g.nome?.trim() || cat?.nome || "Outro",
+        icone: cat?.icone ?? ICONE_PADRAO,
+        fatia: total > 0 ? arredondar(g.valor / total, 4) : 0,
+      };
+    })
+    .sort((a, b) => b.valor - a.valor);
+}
+
+function montarResumo(perfil: Perfil, custoFixo: number, parcelas: number): Resumo {
+  const custoTotal = arredondar(perfil.custoMoradia + custoFixo + parcelas);
   const excedente = arredondar(perfil.rendaMensal - custoTotal);
   return {
     renda: perfil.rendaMensal,
     custoMoradia: perfil.custoMoradia,
-    custoFixo: perfil.custoFixo,
+    custoFixo,
     parcelas,
     custoTotal,
     excedente,
@@ -188,7 +212,12 @@ function montarReserva(perfil: Perfil, custoTotal: number, folegoAlvo: number): 
   };
 }
 
-function montarCorte(perfil: Perfil, resumo: Resumo, caras: DividaAvaliada[]): PlanoDeCorte {
+function montarCorte(
+  perfil: Perfil,
+  resumo: Resumo,
+  caras: DividaAvaliada[],
+  gastos: GastoFixoDetalhado[],
+): PlanoDeCorte {
   const deficit = arredondar(-resumo.excedente);
   const metaCorte = arredondar(deficit + perfil.rendaMensal * MARGEM_MINIMA_CORTE);
   const sugestoes: string[] = [];
@@ -197,7 +226,9 @@ function montarCorte(perfil: Perfil, resumo: Resumo, caras: DividaAvaliada[]): P
   if (perfil.custoMoradia > 0 && perfil.custoMoradia / perfil.rendaMensal > LIMIAR_MORADIA_PESADA) {
     sugestoes.push(textos.corte.moradiaPesada(perfil.custoMoradia, perfil.rendaMensal));
   }
-  sugestoes.push(textos.corte.assinaturas());
+  // com os gastos separados dá pra dizer ONDE cortar; sem eles, só o conselho genérico
+  const maiores = gastos.slice(0, MAIORES_GASTOS_NO_CORTE);
+  sugestoes.push(maiores.length > 0 ? textos.corte.maioresGastos(maiores) : textos.corte.assinaturas());
   sugestoes.push(textos.corte.rendaExtra(metaCorte));
 
   return {
@@ -370,7 +401,10 @@ export function gerarPlano(perfil: Perfil, opcoes: OpcoesMotor = {}): Plano {
   const baratas = avaliadas.filter((d) => d.classe === "barata");
   const parcelas = arredondar(soma(avaliadas.map((d) => d.parcela ?? 0)));
 
-  const resumo = montarResumo(perfil, parcelas);
+  const gastosFixos = detalharGastos(perfil.gastosFixos);
+  const custoFixo = arredondar(soma(gastosFixos.map((g) => g.valor)));
+
+  const resumo = montarResumo(perfil, custoFixo, parcelas);
   const folego = montarFolego(resumo.custoTotal, perfil.guardado);
   const reserva = montarReserva(perfil, resumo.custoTotal, folego.alvo);
   const degrau = decidirDegrau(folego, caras, reserva, medias);
@@ -396,13 +430,14 @@ export function gerarPlano(perfil: Perfil, opcoes: OpcoesMotor = {}): Plano {
     mesesParaQuitarMedias: projecoes.mesesParaQuitarMedias,
   };
 
-  const corte = modoCorte ? montarCorte(perfil, resumo, caras) : null;
+  const corte = modoCorte ? montarCorte(perfil, resumo, caras, gastosFixos) : null;
 
   const contexto = { perfil, resumo, degrau, folego, reserva, dividas, corte, aporte, livre };
 
   return {
     perfil,
     resumo,
+    gastosFixos,
     modoCorte,
     corte,
     degrau,

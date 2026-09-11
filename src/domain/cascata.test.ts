@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { formatBRL } from "@/lib/format";
 import {
   FOLEGO_PISO,
   FOLEGO_TETO,
@@ -8,6 +9,9 @@ import {
 } from "./config";
 import { gerarPlano } from "./motor";
 import type { Degrau, Destino, Perfil, Plano } from "./types";
+/** Açúcar dos testes: um gasto fixo único, pra cenários que só olham o total. */
+const gastos = (valor: number) => (valor > 0 ? [{ categoria: "mercado", valor }] : []);
+
 
 /*
   A cascata, cenário a cenário, na pele da persona (18–30, começando a trabalhar).
@@ -23,7 +27,7 @@ const base: Perfil = {
   idade: 22,
   moradia: "pais",
   custoMoradia: 0,
-  custoFixo: 900,
+  gastosFixos: gastos(900),
   dividas: [],
   guardado: 0,
 };
@@ -61,7 +65,7 @@ function esperarInvariantes(p: Plano) {
 
 describe("cascata — cenários da persona", () => {
   it("salário mínimo morando com os pais, sem dívida, sem reserva → degrau 0, tudo pro fôlego", () => {
-    const p = gerarPlano(perfil({ rendaMensal: 1600, custoFixo: 600 }));
+    const p = gerarPlano(perfil({ rendaMensal: 1600, gastosFixos: gastos(600) }));
     expect(p.resumo.custoTotal).toBe(600);
     expect(p.resumo.excedente).toBe(1000);
     expect(p.degrau).toBe(0);
@@ -80,7 +84,7 @@ describe("cascata — cenários da persona", () => {
         rendaMensal: 3000,
         moradia: "aluguel",
         custoMoradia: 1000,
-        custoFixo: 800,
+        gastosFixos: gastos(800),
         dividas: [{ tipo: "rotativo", saldo: 4000 }],
         guardado: 1000,
       }),
@@ -107,7 +111,7 @@ describe("cascata — cenários da persona", () => {
         rendaMensal: 3000,
         moradia: "aluguel",
         custoMoradia: 1000,
-        custoFixo: 800,
+        gastosFixos: gastos(800),
         dividas: [{ tipo: "rotativo", saldo: 1000 }],
         guardado: 500,
       }),
@@ -157,7 +161,7 @@ describe("cascata — cenários da persona", () => {
 
   describe("excedente negativo → modo corte", () => {
     it("aporte 0, livre 0, sem alocações, sem renegociar nem moradia quando não se aplicam", () => {
-      const p = gerarPlano(perfil({ rendaMensal: 1500, custoFixo: 1700 }));
+      const p = gerarPlano(perfil({ rendaMensal: 1500, gastosFixos: gastos(1700) }));
       expect(p.modoCorte).toBe(true);
       expect(p.aporte).toBe(0);
       expect(p.livre).toBe(0);
@@ -168,8 +172,52 @@ describe("cascata — cenários da persona", () => {
       const s = p.corte!.sugestoes;
       expect(s.some((t) => t.includes("Renegociar"))).toBe(false);
       expect(s.some((t) => t.includes("Moradia"))).toBe(false);
-      expect(s.some((t) => t.includes("assinaturas"))).toBe(true);
+      // com gastos separados, a sugestão nomeia onde o dinheiro está indo
+      expect(s.some((t) => t.includes("Onde o dinheiro está indo"))).toBe(true);
       expect(p.corte!.metaTexto).toContain("Meta do mês");
+    });
+
+    it("sem nenhum gasto fixo informado, cai no conselho genérico de assinaturas", () => {
+      const p = gerarPlano(
+        perfil({ rendaMensal: 1500, moradia: "aluguel", custoMoradia: 1600, gastosFixos: [] }),
+      );
+      expect(p.modoCorte).toBe(true);
+      expect(p.corte!.sugestoes.some((t) => t.includes("assinaturas"))).toBe(true);
+      expect(p.corte!.sugestoes.some((t) => t.includes("Onde o dinheiro está indo"))).toBe(false);
+    });
+
+    it("nomeia os maiores gastos, do maior pro menor, e quantifica o corte do primeiro", () => {
+      const p = gerarPlano(
+        perfil({
+          rendaMensal: 2000,
+          gastosFixos: [
+            { categoria: "academia", valor: 150 },
+            { categoria: "mercado", valor: 900 },
+            { categoria: "streaming", valor: 60 },
+            { categoria: "celular", valor: 1000 },
+          ],
+        }),
+      );
+      expect(p.modoCorte).toBe(true);
+      const s = p.corte!.sugestoes.find((t) => t.includes("Onde o dinheiro está indo"))!;
+      // só os 3 maiores: celular 1000, mercado 900, academia 150 — streaming fica de fora
+      expect(s).toContain("Celular");
+      expect(s).toContain("Mercado");
+      expect(s).toContain("Academia");
+      expect(s).not.toContain("Streaming");
+      expect(s.indexOf("Celular")).toBeLessThan(s.indexOf("Mercado"));
+      // um quinto do maior
+      expect(s).toContain(formatBRL(200));
+    });
+
+    it("gasto de categoria livre entra pelo nome que a pessoa deu", () => {
+      const p = gerarPlano(
+        perfil({
+          rendaMensal: 1000,
+          gastosFixos: [{ categoria: "outro", nome: "Mensalidade do clube", valor: 1200 }],
+        }),
+      );
+      expect(p.corte!.sugestoes.some((t) => t.includes("Mensalidade do clube"))).toBe(true);
     });
 
     it("com dívida cara e aluguel acima de 30% da renda, sugere renegociar (primeiro) e moradia", () => {
@@ -178,7 +226,7 @@ describe("cascata — cenários da persona", () => {
           rendaMensal: 2000,
           moradia: "aluguel",
           custoMoradia: 900, // 45%
-          custoFixo: 1200,
+          gastosFixos: gastos(1200),
           dividas: [{ tipo: "rotativo", saldo: 3000 }],
         }),
       );
@@ -189,13 +237,13 @@ describe("cascata — cenários da persona", () => {
       expect(s[0]).toContain("rotativo");
       expect(s[1]).toContain("Moradia");
       expect(s[1]).toContain("45%");
-      expect(s.some((t) => t.includes("assinaturas"))).toBe(true);
+      expect(s.some((t) => t.includes("Onde o dinheiro está indo"))).toBe(true);
       expect(p.corte!.metaTexto).toContain("Meta do mês");
     });
 
     it("aluguel em exatamente 30% da renda não vira sugestão de moradia", () => {
       const p = gerarPlano(
-        perfil({ rendaMensal: 2000, moradia: "aluguel", custoMoradia: 600, custoFixo: 1500 }),
+        perfil({ rendaMensal: 2000, moradia: "aluguel", custoMoradia: 600, gastosFixos: gastos(1500) }),
       );
       expect(p.modoCorte).toBe(true);
       expect(p.corte!.sugestoes.some((t) => t.includes("Moradia"))).toBe(false);
@@ -205,7 +253,7 @@ describe("cascata — cenários da persona", () => {
       const p = gerarPlano(
         perfil({
           rendaMensal: 2000,
-          custoFixo: 1800,
+          gastosFixos: gastos(1800),
           dividas: [{ tipo: "financiamento", saldo: 20000, parcela: 400 }],
         }),
       );
@@ -216,7 +264,7 @@ describe("cascata — cenários da persona", () => {
   });
 
   it("excedente exatamente zero → modo corte", () => {
-    const p = gerarPlano(perfil({ rendaMensal: 2000, custoFixo: 2000 }));
+    const p = gerarPlano(perfil({ rendaMensal: 2000, gastosFixos: gastos(2000) }));
     expect(p.resumo.excedente).toBe(0);
     expect(p.modoCorte).toBe(true);
     expect(p.aporte).toBe(0);
@@ -319,7 +367,7 @@ describe("cascata — cenários da persona", () => {
   });
 
   it("custos zero (pais, fixo 0, sem dívida) → fôlego = piso, reserva.alvo ≥ fôlego, nada quebra", () => {
-    const p = gerarPlano(perfil({ rendaMensal: 1600, custoFixo: 0 }));
+    const p = gerarPlano(perfil({ rendaMensal: 1600, gastosFixos: gastos(0) }));
     expect(p.resumo.custoTotal).toBe(0);
     expect(p.resumo.taxaExcedente).toBe(1);
     expect(p.folego.alvo).toBe(FOLEGO_PISO);
@@ -351,7 +399,7 @@ describe("cascata — cenários da persona", () => {
 
   it("o fôlego alocado no mês conta pra reserva: a alocação de reserva desconta o que foi pro fôlego", () => {
     // custoTotal 300 → fôlego 300, reserva 900 (clt). Aporte 1620 dá pra passar dos dois.
-    const p = gerarPlano(perfil({ rendaMensal: 3000, custoFixo: 300 }));
+    const p = gerarPlano(perfil({ rendaMensal: 3000, gastosFixos: gastos(300) }));
     expect(p.folego.alvo).toBe(300);
     expect(p.reserva).toMatchObject({ alvo: 900, falta: 900 });
     expect(p.degrau).toBe(0);
@@ -415,7 +463,7 @@ describe("cascata — cenários da persona", () => {
       rendaMensal: 3100,
       moradia: "dividido",
       custoMoradia: 700,
-      custoFixo: 950,
+      gastosFixos: gastos(950),
       dividas: [
         { tipo: "rotativo", saldo: 1200 },
         { tipo: "financiamento", saldo: 9000, parcela: 350 },
@@ -456,12 +504,12 @@ describe("cascata — cenários da persona", () => {
 
 describe("cascata — invariantes em lote", () => {
   const cenarios: Perfil[] = [
-    perfil({ rendaMensal: 1600, custoFixo: 600 }),
+    perfil({ rendaMensal: 1600, gastosFixos: gastos(600) }),
     perfil({
       rendaMensal: 3000,
       moradia: "aluguel",
       custoMoradia: 1000,
-      custoFixo: 800,
+      gastosFixos: gastos(800),
       dividas: [{ tipo: "rotativo", saldo: 4000 }],
       guardado: 1000,
     }),
@@ -469,7 +517,7 @@ describe("cascata — invariantes em lote", () => {
       rendaMensal: 3000,
       moradia: "aluguel",
       custoMoradia: 1000,
-      custoFixo: 800,
+      gastosFixos: gastos(800),
       dividas: [{ tipo: "rotativo", saldo: 1000 }],
       guardado: 500,
     }),
@@ -487,27 +535,27 @@ describe("cascata — invariantes em lote", () => {
     perfil({ dividas: [{ tipo: "financiamento", saldo: 15000, parcela: 500 }], guardado: 10000 }),
     perfil({ dividas: [{ tipo: "financiamento", saldo: 15000, parcela: 500 }], guardado: 2000 }),
     perfil({ dividas: [{ tipo: "outra", saldo: 5000, taxaAnual: 0.05 }], guardado: 10000 }),
-    perfil({ rendaMensal: 1600, custoFixo: 0 }),
+    perfil({ rendaMensal: 1600, gastosFixos: gastos(0) }),
     perfil({ guardado: 1_000_000 }),
-    perfil({ rendaMensal: 3000, custoFixo: 300 }),
+    perfil({ rendaMensal: 3000, gastosFixos: gastos(300) }),
     perfil({ dividas: [{ tipo: "financiamento", saldo: 10000, parcela: 400 }] }),
     // valores quebrados, pra estressar o arredondamento
     perfil({
       rendaMensal: 2333.33,
       moradia: "aluguel",
       custoMoradia: 777.77,
-      custoFixo: 555.55,
+      gastosFixos: gastos(555.55),
       guardado: 123.45,
     }),
     perfil({
       rendaMensal: 1999.99,
-      custoFixo: 666.67,
+      gastosFixos: gastos(666.67),
       dividas: [{ tipo: "emprestimo", saldo: 1234.56, parcela: 98.76 }],
       guardado: 1000.01,
     }),
     perfil({
       rendaMensal: 4100.1,
-      custoFixo: 1000.03,
+      gastosFixos: gastos(1000.03),
       dividas: [{ tipo: "financiamento", saldo: 9999.99, parcela: 333.33 }],
       guardado: 3500.5,
     }),
@@ -533,7 +581,10 @@ describe("cascata — invariantes em lote", () => {
         tipoRenda: tiposRenda[Math.floor(rnd() * 3)],
         moradia: "aluguel",
         custoMoradia: entre(0, 2500),
-        custoFixo: entre(0, 2500),
+        // gastos espalhados em categorias diferentes: exercita a soma e a ordenação
+        gastosFixos: ["mercado", "academia", "celular", "internet"]
+          .map((categoria) => ({ categoria, valor: entre(0, 700) }))
+          .filter((g) => g.valor > 0),
         guardado: entre(0, 20000),
         dividas: Array.from({ length: nDividas }, () => ({
           tipo: tipos[Math.floor(rnd() * tipos.length)],

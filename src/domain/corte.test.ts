@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import { formatBRL, formatPct } from "@/lib/format";
 import { MARGEM_MINIMA_CORTE } from "./config";
 import { gerarPlano } from "./motor";
+/** Açúcar dos testes: um gasto fixo único, pra cenários que só olham o total. */
+const gastos = (valor: number) => (valor > 0 ? [{ categoria: "mercado", valor }] : []);
+
 
 /*
   config.ts promete: "regra de bolso fica aqui, pra ser ajustada sem mexer na lógica".
@@ -27,7 +30,7 @@ describe("modo corte segue MARGEM_MINIMA_CORTE", () => {
       idade: 22,
       moradia: "pais",
       custoMoradia: 0,
-      custoFixo: 2100,
+      gastosFixos: gastos(2100),
       dividas: [],
       guardado: 0,
     });

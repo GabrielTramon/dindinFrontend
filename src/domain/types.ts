@@ -25,6 +25,16 @@ export interface Divida {
   taxaAnual?: number;
 }
 
+/** Um gasto fixo do mês, já categorizado. */
+export interface GastoFixo {
+  /** slug do catálogo em categorias.ts; SLUG_OUTRO quando a pessoa criou a categoria */
+  categoria: string;
+  /** nome dado pela pessoa — obrigatório quando a categoria é "outro" */
+  nome?: string;
+  /** quanto sai por mês, em reais */
+  valor: number;
+}
+
 /** As 8 respostas do onboarding. */
 export interface Perfil {
   /** renda líquida mensal, em reais */
@@ -34,8 +44,8 @@ export interface Perfil {
   moradia: Moradia;
   /** aluguel ou parcela + condomínio; 0 quando mora com os pais ou casa quitada */
   custoMoradia: number;
-  /** gastos fixos fora moradia: mercado, transporte, celular, assinaturas */
-  custoFixo: number;
+  /** gastos fixos fora moradia, item a item: mercado, academia, celular… */
+  gastosFixos: GastoFixo[];
   dividas: Divida[];
   /** quanto já tem guardado hoje (poupança, conta rendendo) */
   guardado: number;
@@ -56,6 +66,16 @@ export interface DividaAvaliada extends Divida {
   jurosMensais: number;
 }
 
+/** Um gasto fixo pronto pra tela: nome resolvido, ícone e peso no total. */
+export interface GastoFixoDetalhado extends GastoFixo {
+  /** o nome dado pela pessoa, ou o nome da categoria do catálogo */
+  nomeExibido: string;
+  /** nome do componente no lucide-react */
+  icone: string;
+  /** fatia do custo fixo total, entre 0 e 1 */
+  fatia: number;
+}
+
 export type Destino =
   | "folego"
   | "divida_cara"
@@ -74,6 +94,7 @@ export interface Alocacao {
 export interface Resumo {
   renda: number;
   custoMoradia: number;
+  /** soma dos gastos fixos informados */
   custoFixo: number;
   /** soma das parcelas de dívida informadas */
   parcelas: number;
@@ -134,6 +155,8 @@ export interface Decisao {
 export interface Plano {
   perfil: Perfil;
   resumo: Resumo;
+  /** gastos fixos do maior pro menor, prontos pra tela */
+  gastosFixos: GastoFixoDetalhado[];
   modoCorte: boolean;
   corte: PlanoDeCorte | null;
   degrau: Degrau;

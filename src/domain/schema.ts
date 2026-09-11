@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { MAX_DIVIDAS } from "./config";
+import { SLUGS_CATEGORIA, SLUG_OUTRO } from "./categorias";
+import { MAX_DIVIDAS, MAX_GASTOS_FIXOS } from "./config";
 
 /*
   Validação do perfil. Mensagens em pt-BR porque aparecem na tela.
@@ -37,6 +38,27 @@ export const dividaSchema = z.object({
     .optional(),
 });
 
+export const gastoFixoSchema = z
+  .object({
+    categoria: z.string({ error: "Escolha a categoria" }).refine((s) => SLUGS_CATEGORIA.includes(s), {
+      error: "Categoria desconhecida",
+    }),
+    nome: z
+      .string()
+      .trim()
+      .max(40, { error: "No máximo 40 caracteres" })
+      .optional(),
+    valor: z
+      .number({ error: "Informe quanto sai por mês" })
+      .positive({ error: "O valor precisa ser maior que zero" })
+      .max(1_000_000, { error: "Confere esse valor? Está muito alto" }),
+  })
+  // categoria livre precisa de nome: sem ele a linha aparece como "Outro" e não diz nada
+  .refine((g) => g.categoria !== SLUG_OUTRO || (g.nome !== undefined && g.nome.length > 0), {
+    error: "Dê um nome pra esse gasto",
+    path: ["nome"],
+  });
+
 export const perfilSchema = z.object({
   rendaMensal: z
     .number({ error: "Informe quanto entra por mês" })
@@ -53,10 +75,9 @@ export const perfilSchema = z.object({
     .number({ error: "Informe quanto sai de moradia" })
     .nonnegative({ error: "Não pode ser negativo" })
     .max(1_000_000, { error: "Confere esse valor? Está muito alto" }),
-  custoFixo: z
-    .number({ error: "Informe seus gastos fixos" })
-    .nonnegative({ error: "Não pode ser negativo" })
-    .max(1_000_000, { error: "Confere esse valor? Está muito alto" }),
+  gastosFixos: z
+    .array(gastoFixoSchema)
+    .max(MAX_GASTOS_FIXOS, { error: `No máximo ${MAX_GASTOS_FIXOS} gastos fixos` }),
   dividas: z.array(dividaSchema).max(MAX_DIVIDAS, { error: `No máximo ${MAX_DIVIDAS} dívidas` }),
   guardado: z
     .number({ error: "Informe quanto você tem guardado (pode ser 0)" })
