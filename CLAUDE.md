@@ -2,7 +2,7 @@
 
 # dindin
 
-Planejador financeiro gratuito, em pt-BR, pra quem está começando a trabalhar (18–30 anos). A pessoa responde 8 perguntas e recebe um plano: o que pagar primeiro, quanto guardar, quanto sobra pra gastar. Sem login no v1, sem anúncio no fluxo do plano, conteúdo educacional — nunca cita produto, banco ou emissor.
+Planejador financeiro gratuito, em pt-BR, pra quem está começando a trabalhar (18–30 anos). A pessoa responde 9 perguntas e recebe um plano: o que pagar primeiro, quanto guardar, quanto sobra pra gastar. Sem login no v1, sem anúncio no fluxo do plano, conteúdo educacional — nunca cita produto, banco ou emissor.
 
 ## Comandos
 
@@ -13,10 +13,39 @@ Planejador financeiro gratuito, em pt-BR, pra quem está começando a trabalhar 
 
 ## Estrutura
 
-- `src/domain/` — motor puro, sem React e sem I/O. `types` (Perfil, Plano…), `config` (constantes com o porquê), `motor` (a cascata: `gerarPlano`), `textos` (toda frase do plano), `schema` (zod + `validarPerfil`), `projecao` (metas), `categorias` (catálogo de gastos fixos). Importar sempre via `@/domain`.
+- `src/domain/` — motor puro, sem React e sem I/O. `types` (Perfil, Plano…), `config` (constantes com o porquê), `motor` (a cascata: `gerarPlano`), `textos` (toda frase do plano), `schema` (zod + `validarPerfil`), `projecao` (metas), `categorias` (catálogo de gastos fixos), `renda` (bruto → líquido), `organizacao` (grupos sobre o que sobra + projeção da meta), `metas-catalogo` (metas e grupos sugeridos, com ícone). Importar sempre via `@/domain`.
 - `src/lib/` — `format` (formatBRL, formatPct, formatMeses, parseBRL, mascaraInteiroBRL), `storage` (localStorage seguro: readJSON/writeJSON/removeKey + STORAGE_KEYS), `utils` (cn).
 - `src/components/ui/` — shadcn estilo base-nova sobre `@base-ui/react`. `brand/logo` (`<Logo />`, `<LogoMark />`). Componentes de página em `home/`, `onboarding/`, `resultado/`.
-- `src/app/` — `/` home · `/plano` onboarding (8 perguntas, uma por tela, passo em `?p=N`) · `/plano/resultado`.
+- `src/app/` — `/` home · `/plano` onboarding (9 perguntas, uma por tela, passo em `?p=N`) · `/plano/resultado`.
+
+## Renda bruta → líquida
+
+Quem é CLT pode informar o **bruto**; o app calcula o líquido com INSS + IRRF (`src/domain/renda.ts`) e é o líquido que vai pra `Perfil.rendaMensal` — todo o motor continua trabalhando com o que cai na conta.
+
+- As tabelas ficam em `TABELAS_FOLHA` (config.ts), num literal só: atualizar em janeiro é editar dados. `renda.test.ts` compara a data de hoje com `vigenciaAte` e **fica vermelho sozinho quando a tabela vence**.
+- Arredondar UMA vez no fim de cada etapa (INSS, depois IRRF, depois o líquido). Somar faixas já arredondadas erra centavo — há teste que prova.
+- O redutor da Lei 15.270/2025 usa o teto literal da tabela, não a fórmula (a fórmula em R$ 5.000 arredonda pra 312,90 e vira imposto negativo).
+- **Vale-transporte e plano de saúde não entram aqui**: eles são gasto fixo. Descontar dos dois lados tira o mesmo dinheiro duas vezes.
+- PJ e informal informam o que cai na conta — sem o anexo do Simples e o Fator R não existe conta honesta. Pra eles, o grupo "Imposto" aparece sugerido na tela de organização.
+
+## Ritmo
+
+`Perfil.ritmo` (leve · equilibrado · acelerado) decide **quanto** do que sobra vira aporte — nunca a ordem da cascata. A tabela é `PROPORCAO_APORTE[ritmo][degrau]`, e a coluna `equilibrado` é a de sempre: quem não escolhe recebe o plano de antes.
+
+- **Leia sempre por `proporcaoAporte(ritmo, degrau)`/`aportePorDegrau`.** O aporte do mês e as projeções ("zera em X meses") precisam sair da mesma conta; dois leitores independentes fazem a tela prometer um prazo que o aporte não alcança.
+- Piso: nenhum ritmo deixa a pessoa com menos de 10% da renda livre (`MARGEM_MINIMA_CORTE`), e nenhum guarda menos que o equilibrado por causa do piso. `Plano.piso` conta pra tela quando isso mordeu.
+- `Perfil.aporteEscolhido` sobrescreve tudo isso: é a pessoa editando o grupo "Guardar" na mão. Entra pelo mesmo acessor, então as projeções acompanham.
+
+## Organizar o que sobra (grupos)
+
+A pessoa reparte o **excedente** (renda − custos) em até 6 grupos, com até 5 itens cada. O primeiro é "Guardar", criado pelo sistema com o aporte do plano e editável.
+
+- Guarda **reais**; a porcentagem é calculada na leitura, nunca gravada — senão os dois números divergem no primeiro aumento de salário.
+- Porcentagem e "ajustar proporcionalmente" usam maior resto em centavos, nos dois níveis (grupos e itens), pra soma fechar em 100% e no centavo.
+- Passar da base **avisa**, nunca bloqueia. Sobrar não é erro: vira "livre pro dia a dia".
+- Cada grupo tem `contaParaMeta` (entra na soma da meta principal) e `rendimentoMensal` opcional, digitado pela pessoa — o app nunca sugere taxa nem onde investir.
+- O dinheiro do plano só conta pra meta no degrau 4: antes disso ele vai pro fôlego, pra dívida ou pra reserva.
+- Os grupos ficam em `STORAGE_KEYS.organizacao`, **fora do perfil**: o perfil é revalidado inteiro a cada render e uma árvore estranha não pode derrubar o plano da tela.
 
 ## A cascata (o produto)
 
@@ -38,7 +67,8 @@ O catálogo vive em `src/domain/categorias.ts` e é a fonte da verdade. Cada cat
 ## Regras de produto
 
 - Zero anúncio em `/plano/**`. Sempre. Mesmo depois do AdSense.
-- Sem login. Estado do usuário fica em localStorage via `@/lib/storage`, com as chaves de `STORAGE_KEYS`. Toda leitura/escrita já é protegida; nunca acessar `window.localStorage` direto.
+- Sem login. Estado do usuário fica em localStorage via `@/lib/storage`, com as chaves de `STORAGE_KEYS`. Toda leitura/escrita já é protegida; nunca acessar `window.localStorage` direto. `writeJSON`/`removeKey` avisam os assinantes **desta** aba — o evento `storage` do navegador só chega nas outras, e sem esse aviso a tela não se redesenha depois da própria escrita.
+- Campo novo no perfil: opcional no zod e **sem `.default()`** (default mudaria o snapshot de todo plano já gravado), e precisa entrar na allow-list de `sanearRespostas` — o que não está lá some no F5.
 - O resultado nunca fica atrás de cadastro.
 - Tom do texto: direto, acolhedor, sem julgamento, sem jargão. "quite o cartão", não "otimize seu passivo". Sem exclamação em excesso, sem emoji no corpo.
 - Nunca recomendar produto, banco, corretora ou emissor. Alocação só por classe de ativo. Disclaimer educacional visível na tela do plano.
