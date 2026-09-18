@@ -21,14 +21,14 @@ export const metadata: Metadata = {
     template: "%s · dindin",
   },
   description:
-    "Responda 8 perguntas e receba em 2 minutos um plano claro do que fazer com o seu salário: o que pagar primeiro, quanto guardar e quanto sobra pra você. Grátis, sem cadastro.",
+    "Responda 9 perguntas e receba em 2 minutos um plano claro do que fazer com o seu salário: o que pagar primeiro, quanto guardar e quanto sobra pra você. Grátis, sem cadastro.",
   openGraph: {
     type: "website",
     locale: "pt_BR",
     siteName: "dindin",
     title: "dindin — seu dinheiro com um plano",
     description:
-      "8 perguntas, 2 minutos, um plano claro do que fazer com o seu salário este mês. Grátis, sem cadastro.",
+      "9 perguntas, 2 minutos, um plano claro do que fazer com o seu salário este mês. Grátis, sem cadastro.",
   },
   robots: { index: true, follow: true },
 };

@@ -7,7 +7,7 @@ import { Secao, TituloSecao } from "@/components/home/secao";
 
 const PASSOS = [
   {
-    titulo: "Responde 8 perguntas",
+    titulo: "Responde 9 perguntas",
     texto:
       "Salário, moradia, gastos fixos, dívidas e quanto tem guardado. Dois minutos, sem planilha.",
   },

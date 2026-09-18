@@ -5,7 +5,7 @@ import { Onboarding } from "@/components/onboarding/onboarding";
 import { OnboardingSkeleton } from "@/components/onboarding/onboarding-skeleton";
 
 /*
-  /plano — as 8 perguntas, uma por tela. Sem rodapé do site: o rodapé aqui é
+  /plano — as 9 perguntas, uma por tela. Sem rodapé do site: o rodapé aqui é
   a barra de navegação do wizard. O Suspense é obrigatório: o Onboarding usa
   useSearchParams e, sem a fronteira, o build estático falha.
 */

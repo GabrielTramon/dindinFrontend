@@ -22,7 +22,7 @@ export function Hero() {
             Seu salário, com um plano.
           </h1>
           <p className="mt-5 max-w-prose text-lg text-ink-2">
-            Responda 8 perguntas e o dindin te diz o que fazer com o dinheiro este mês: o que
+            Responda 9 perguntas e o dindin te diz o que fazer com o dinheiro este mês: o que
             pagar primeiro, quanto guardar e quanto sobra pra você — sem julgamento e sem lançar
             gasto todo dia.
           </p>

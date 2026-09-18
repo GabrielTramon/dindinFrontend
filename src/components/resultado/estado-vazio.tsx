@@ -9,7 +9,7 @@ export function EstadoVazio() {
         Ainda não tem plano por aqui
       </h1>
       <p className="mt-3 max-w-prose text-base text-ink-2 sm:text-lg">
-        Responda 8 perguntas e o seu aparece na hora — leva 2 minutos.
+        Responda 9 perguntas e o seu aparece na hora — leva 2 minutos.
       </p>
       <div className="mt-6">
         <CtaLink href="/plano" size="lg">

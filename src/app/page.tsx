@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   // absolute: a home não passa pelo template "%s · dindin" do layout
   title: { absolute: "dindin — seu dinheiro com um plano" },
   description:
-    "Um plano claro pro seu salário em 2 minutos: o que pagar primeiro, quanto guardar e quanto sobra pra você. Responda 8 perguntas — grátis, sem cadastro e sem lançar gasto todo dia.",
+    "Um plano claro pro seu salário em 2 minutos: o que pagar primeiro, quanto guardar e quanto sobra pra você. Responda 9 perguntas — grátis, sem cadastro e sem lançar gasto todo dia.",
 };
 
 export default function HomePage() {
