@@ -15,6 +15,7 @@ import {
   passosVisiveis,
   proximoPasso,
   type PassoId,
+  textoDoPasso,
 } from "./passos";
 import { Progresso } from "./progresso";
 import { lerRespostasSalvas, montarPerfil, type Respostas } from "./respostas";
@@ -133,8 +134,8 @@ export function Onboarding() {
           <Passo
             key={passo.id}
             id={passo.id}
-            pergunta={passo.pergunta}
-            ajuda={passo.ajuda}
+            pergunta={textoDoPasso(passo.pergunta, respostas) ?? ""}
+            ajuda={textoDoPasso(passo.ajuda, respostas)}
             ids={IDS}
           >
             <PassoControle

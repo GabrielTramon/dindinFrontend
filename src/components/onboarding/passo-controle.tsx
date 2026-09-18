@@ -3,10 +3,12 @@ import { cn } from "@/lib/utils";
 import { ChipsValor } from "./chips";
 import { DividasEditor } from "./dividas-editor";
 import { GastosEditor } from "./gastos-editor";
+import { MetaEditor } from "./meta-editor";
 import { MoneyInput } from "./money-input";
 import { NumberInput } from "./number-input";
 import { OptionCards } from "./option-cards";
-import type { Passo } from "./passos";
+import { textoDoPasso, type Passo } from "./passos";
+import { RendaControle } from "./renda-controle";
 import { moradiaSemCusto, type Respostas } from "./respostas";
 import { ValueSlider } from "./value-slider";
 
@@ -60,38 +62,35 @@ interface PassoControleProps {
 }
 
 export function PassoControle({ passo, respostas, onChange, erro, ids, describedBy, invalid }: PassoControleProps) {
+  const pergunta = textoDoPasso(passo.pergunta, respostas) ?? "";
+
   switch (passo.id) {
     case "rendaMensal":
       return (
-        <div className="grid gap-5">
-          <div className="grid gap-2">
-            <MoneyInput
-              id={ids.controle}
-              label={passo.pergunta}
-              hideLabel
-              autoFocus
-              value={respostas.rendaMensal}
-              onChange={(rendaMensal) => onChange({ rendaMensal })}
-              describedBy={describedBy}
-              invalid={invalid}
-            />
-            <LinhaErro id={ids.erro} erro={erro} />
-          </div>
-          <ChipsValor
-            valores={[1500, 2500, 4000, 6000]}
-            value={respostas.rendaMensal}
-            onChange={(rendaMensal) => onChange({ rendaMensal })}
+        <RendaControle
+          respostas={respostas}
+          onChange={onChange}
+          ids={ids}
+          describedBy={describedBy}
+          invalid={invalid}
+          erro={<LinhaErro id={ids.erro} erro={erro} />}
+          pergunta={pergunta}
+        />
+      );
+
+    case "meta":
+      return (
+        <>
+          <MetaEditor
+            meta={respostas.meta}
+            onChange={(meta) => onChange({ meta })}
+            legend={pergunta}
+            idValor={ids.controle}
+            describedBy={describedBy}
+            invalid={invalid}
           />
-          <ValueSlider
-            value={respostas.rendaMensal}
-            onChange={(rendaMensal) => onChange({ rendaMensal })}
-            min={500}
-            max={20000}
-            step={50}
-            labelledBy={ids.titulo}
-            format={BRL}
-          />
-        </div>
+          <LinhaErro id={ids.erro} erro={erro} />
+        </>
       );
 
     case "tipoRenda":
@@ -99,7 +98,7 @@ export function PassoControle({ passo, respostas, onChange, erro, ids, described
         <>
           <OptionCards
             name="tipoRenda"
-            legend={passo.pergunta}
+            legend={pergunta}
             options={OPCOES_RENDA}
             value={respostas.tipoRenda}
             onChange={(tipoRenda) => onChange({ tipoRenda })}
@@ -115,7 +114,7 @@ export function PassoControle({ passo, respostas, onChange, erro, ids, described
           <div className="grid gap-2">
             <NumberInput
               id={ids.controle}
-              label={passo.pergunta}
+              label={pergunta}
               hideLabel
               autoFocus
               value={respostas.idade}
@@ -144,7 +143,7 @@ export function PassoControle({ passo, respostas, onChange, erro, ids, described
         <>
           <OptionCards
             name="moradia"
-            legend={passo.pergunta}
+            legend={pergunta}
             options={OPCOES_MORADIA}
             value={respostas.moradia}
             onChange={(moradia) =>
@@ -159,7 +158,7 @@ export function PassoControle({ passo, respostas, onChange, erro, ids, described
     case "custoMoradia":
       return (
         <CampoValor
-          passo={passo}
+          pergunta={pergunta}
           valores={[500, 800, 1200, 1800]}
           value={respostas.custoMoradia}
           onChange={(custoMoradia) => onChange({ custoMoradia })}
@@ -176,7 +175,7 @@ export function PassoControle({ passo, respostas, onChange, erro, ids, described
           <GastosEditor
             gastos={respostas.gastosFixos}
             onChange={(gastosFixos) => onChange({ gastosFixos })}
-            legend={passo.pergunta}
+            legend={pergunta}
             describedBy={describedBy}
           />
           <LinhaErro id={ids.erro} erro={erro} />
@@ -189,7 +188,7 @@ export function PassoControle({ passo, respostas, onChange, erro, ids, described
           <DividasEditor
             dividas={respostas.dividas}
             onChange={(dividas) => onChange({ dividas })}
-            legend={passo.pergunta}
+            legend={pergunta}
             describedBy={describedBy}
           />
           <LinhaErro id={ids.erro} erro={erro} />
@@ -199,7 +198,7 @@ export function PassoControle({ passo, respostas, onChange, erro, ids, described
     case "guardado":
       return (
         <CampoValor
-          passo={passo}
+          pergunta={pergunta}
           valores={[0, 500, 2000, 5000]}
           value={respostas.guardado}
           onChange={(guardado) => onChange({ guardado })}
@@ -213,7 +212,7 @@ export function PassoControle({ passo, respostas, onChange, erro, ids, described
 }
 
 interface CampoValorProps {
-  passo: Passo;
+  pergunta: string;
   valores: readonly number[];
   value: number | undefined;
   onChange: (n: number | undefined) => void;
@@ -224,13 +223,13 @@ interface CampoValorProps {
 }
 
 /** Valor em reais com atalhos: o formato das perguntas 5, 6 e 8. */
-function CampoValor({ passo, valores, value, onChange, erro, ids, describedBy, invalid }: CampoValorProps) {
+function CampoValor({ pergunta, valores, value, onChange, erro, ids, describedBy, invalid }: CampoValorProps) {
   return (
     <div className="grid gap-5">
       <div className="grid gap-2">
         <MoneyInput
           id={ids.controle}
-          label={passo.pergunta}
+          label={pergunta}
           hideLabel
           autoFocus
           value={value}

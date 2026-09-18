@@ -1,12 +1,18 @@
 import {
+  brutoParaLiquido,
   MAX_DIVIDAS,
   MAX_GASTOS_FIXOS,
+  METAS_TIPO,
   MORADIAS,
   MORADIAS_SEM_CUSTO,
+  RENDAS_INFORMADAS,
+  RITMOS,
   SLUGS_CATEGORIA,
   SLUG_OUTRO,
+  TABELAS_FOLHA,
   TIPOS_DIVIDA,
   TIPOS_RENDA,
+  type Holerite,
   type Moradia,
   type PerfilInput,
   type TipoDivida,
@@ -76,12 +82,36 @@ function gastosDe(v: unknown): GastoRascunho[] | undefined {
     .filter((g): g is GastoRascunho => g !== null);
 }
 
-/** O que vem do localStorage é de outra sessão, talvez de outra versão: só entra o que faz sentido. */
+function metaDe(v: unknown): PerfilInput["meta"] | undefined {
+  if (typeof v !== "object" || v === null) return undefined;
+  const m = v as Record<string, unknown>;
+  const tipo = entre(METAS_TIPO, m.tipo);
+  if (tipo === undefined) return undefined;
+  const nome = typeof m.nome === "string" ? m.nome.slice(0, 40) : undefined;
+  const valorAlvo = numero(m.valorAlvo);
+  // valorAlvo ainda não respondido é estado normal do rascunho; o schema cobra no fim
+  return { tipo, nome, valorAlvo: valorAlvo as number };
+}
+
+/**
+ * O que vem do localStorage é de outra sessão, talvez de outra versão: só entra
+ * o que faz sentido.
+ *
+ * É uma allow-list: campo novo que esquecerem de listar aqui é apagado a cada
+ * montagem do rascunho — a pessoa responde, troca de passo e o valor some.
+ */
 export function sanearRespostas(bruto: unknown): Respostas {
   if (typeof bruto !== "object" || bruto === null) return {};
   const o = bruto as Record<string, unknown>;
   return {
     rendaMensal: numero(o.rendaMensal),
+    rendaInformada: entre(RENDAS_INFORMADAS, o.rendaInformada),
+    salarioBruto: numero(o.salarioBruto),
+    dependentes: numero(o.dependentes),
+    competenciaTabela: typeof o.competenciaTabela === "string" ? o.competenciaTabela : undefined,
+    ritmo: entre(RITMOS, o.ritmo),
+    aporteEscolhido: numero(o.aporteEscolhido),
+    meta: metaDe(o.meta),
     tipoRenda: entre(TIPOS_RENDA, o.tipoRenda),
     idade: numero(o.idade),
     moradia: entre(MORADIAS, o.moradia),
@@ -106,16 +136,35 @@ export function lerRespostasSalvas(): RespostasSalvas {
 }
 
 /**
+ * O holerite estimado das respostas atuais, ou null quando a pessoa informou o
+ * que cai na conta (PJ e informal sempre caem aqui: sem saber o anexo do Simples
+ * e o Fator R, não existe conta honesta).
+ *
+ * É o mesmo cálculo da prévia do onboarding e o que preenche `rendaMensal`, pra
+ * tela e plano nunca discordarem de um centavo.
+ */
+export function holeriteDasRespostas(r: Respostas): Holerite | null {
+  if (r.rendaInformada !== "bruta" || r.salarioBruto === undefined) return null;
+  return brutoParaLiquido(r.salarioBruto, { dependentes: r.dependentes });
+}
+
+/**
  * Objeto pronto pra `validarPerfil`: moradia sem custo zera o custo de moradia,
- * e o nome em branco de uma categoria livre vira ausente (o schema cobra).
+ * o nome em branco de uma categoria livre vira ausente (o schema cobra) e,
+ * quem informou o salário bruto, tem `rendaMensal` derivada do líquido.
  */
 export function montarPerfil(r: Respostas): Respostas {
+  const holerite = holeriteDasRespostas(r);
   return {
     ...r,
+    rendaMensal: holerite ? holerite.liquido : r.rendaMensal,
+    // qual tabela gerou esse líquido: em janeiro dá pra avisar que a conta mudou
+    competenciaTabela: holerite ? TABELAS_FOLHA.competencia : r.competenciaTabela,
     custoMoradia: moradiaSemCusto(r.moradia) ? 0 : r.custoMoradia,
     gastosFixos: r.gastosFixos?.map((g) => ({
       ...g,
       nome: g.categoria === SLUG_OUTRO ? g.nome?.trim() || undefined : undefined,
     })),
+    meta: r.meta && { ...r.meta, nome: r.meta.tipo === "outro" ? r.meta.nome?.trim() || undefined : undefined },
   };
 }

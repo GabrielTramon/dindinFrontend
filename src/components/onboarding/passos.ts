@@ -1,8 +1,8 @@
-import { perfilSchema, SLUG_OUTRO, type PerfilInput } from "@/domain";
+import { metaSchema, perfilSchema, SLUG_OUTRO, type PerfilInput } from "@/domain";
 import { moradiaSemCusto, type Respostas } from "./respostas";
 
 /*
-  As 8 perguntas, na ordem. Cada passo sabe se está respondido (`valido`),
+  As 9 perguntas, na ordem. Cada passo sabe se está respondido (`valido`),
   o que dizer quando a resposta existe mas não serve (`erro`) e se deve ser
   pulado (`pular`). A validade usa o mesmo schema do perfil final, então o que
   passa aqui passa em `validarPerfil` no fim.
@@ -10,10 +10,13 @@ import { moradiaSemCusto, type Respostas } from "./respostas";
 
 export type PassoId = keyof PerfilInput;
 
+/** texto fixo, ou que muda com o que já foi respondido */
+type Texto = string | ((r: Respostas) => string);
+
 export interface Passo {
   id: PassoId;
-  pergunta: string;
-  ajuda?: string;
+  pergunta: Texto;
+  ajuda?: Texto;
   /** o passo está respondido e a resposta passa no schema */
   valido: (r: Respostas) => boolean;
   /** mensagem quando há resposta mas ela não passa (ex.: valor alto demais) */
@@ -41,8 +44,13 @@ const gastosFixos = campo("gastosFixos");
 export const PASSOS: readonly Passo[] = [
   {
     id: "rendaMensal",
-    pergunta: "Quanto entra na sua conta por mês?",
-    ajuda: "Líquido, depois dos descontos. Se varia, uma média dos últimos 3 meses.",
+    // o enunciado acompanha o segmentado da tela: quem escolheu "salário bruto"
+    // não pode continuar lendo "líquido, depois dos descontos"
+    pergunta: (r) => (r.rendaInformada === "bruta" ? "Qual é o seu salário bruto?" : "Quanto entra na sua conta por mês?"),
+    ajuda: (r) =>
+      r.rendaInformada === "bruta"
+        ? "O valor do contrato, antes dos descontos. O dindin calcula o que cai na conta."
+        : "Líquido, depois dos descontos. Se varia, uma média dos últimos 3 meses.",
     ...campo("rendaMensal"),
   },
   {
@@ -102,7 +110,25 @@ export const PASSOS: readonly Passo[] = [
     ajuda: "Poupança, conta rendendo, dinheiro parado. Se for nada, tudo bem — é daí que a gente parte.",
     ...campo("guardado"),
   },
+  {
+    id: "meta",
+    pergunta: "Qual é a sua meta agora?",
+    ajuda: "Uma só, a que mais importa. Dá pra mudar depois.",
+    // `campo("meta")` não serve: o campo é opcional no schema, e schema.safeParse(undefined)
+    // passa — o passo ficaria "respondido" vazio e daria pra pular a pergunta inteira.
+    valido: (r) => r.meta !== undefined && metaSchema.safeParse(r.meta).success,
+    erro: (r) => {
+      if (r.meta === undefined || r.meta.valorAlvo === undefined) return undefined;
+      const resultado = metaSchema.safeParse(r.meta);
+      return resultado.success ? undefined : resultado.error.issues.at(0)?.message;
+    },
+  },
 ];
+
+/** Resolve o texto de um passo pras respostas atuais. */
+export function textoDoPasso(texto: Texto | undefined, r: Respostas): string | undefined {
+  return typeof texto === "function" ? texto(r) : texto;
+}
 
 /** Índices dos passos que se aplicam a essas respostas, em ordem. */
 export function passosVisiveis(r: Respostas): number[] {
