@@ -15,6 +15,9 @@ export function Acoes() {
   function comecarDoZero() {
     removeKey(STORAGE_KEYS.perfil);
     removeKey(STORAGE_KEYS.rascunho);
+    // os grupos moram numa chave própria: sem esta linha, a organização de
+    // quem "começou do zero" reapareceria em cima de um plano novo
+    removeKey(STORAGE_KEYS.organizacao);
     router.push("/plano");
   }
 
