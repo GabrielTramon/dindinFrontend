@@ -23,9 +23,14 @@ import { readJSON, STORAGE_KEYS, subscribeStorage, writeJSON } from "@/lib/stora
   aporte do plano, e só vira dado quando a pessoa edita. Assim, mudar o ritmo ou
   qualquer resposta do questionário atualiza o "Guardar" sozinho, sem deixar um
   número velho gravado.
+
+  O que a pessoa escreve DENTRO dele — itens, "entra na minha meta", rendimento —
+  é dado dela e precisa ser gravado à parte, senão some no primeiro redesenho:
+  `montarSistema` e `paraGuardado` são os dois lados desse mesmo contrato e
+  mudam sempre juntos.
 */
 
-interface Guardado {
+export interface Guardado {
   /** grupos da pessoa, sem o do sistema */
   grupos: Grupo[];
   /** itens que ela criou dentro do "Guardar" */
@@ -37,6 +42,12 @@ interface Guardado {
    * meta seria mentira.
    */
   sistemaContaParaMeta?: boolean;
+  /**
+   * o rendimento declarado no "Guardar". O VALOR desse grupo é do plano e se
+   * refaz a cada render; a taxa, não — sem gravar aqui, o que a pessoa digita
+   * some no primeiro redesenho e nunca chega na projeção da meta.
+   */
+  rendimentoDoSistema?: number;
 }
 
 const VAZIO: Guardado = { grupos: [] };
@@ -49,6 +60,10 @@ function ler(): Guardado {
     grupos: Array.isArray(o.grupos) ? (o.grupos as Grupo[]) : [],
     itensDoSistema: Array.isArray(o.itensDoSistema) ? (o.itensDoSistema as Grupo["itens"]) : undefined,
     sistemaContaParaMeta: typeof o.sistemaContaParaMeta === "boolean" ? o.sistemaContaParaMeta : undefined,
+    rendimentoDoSistema:
+      typeof o.rendimentoDoSistema === "number" && Number.isFinite(o.rendimentoDoSistema) && o.rendimentoDoSistema > 0
+        ? o.rendimentoDoSistema
+        : undefined,
   };
 }
 
@@ -58,6 +73,52 @@ function snapshot(): string {
 }
 
 const SUGESTAO_SISTEMA = grupoSugeridoPorSlug(SLUG_GRUPO_SISTEMA);
+
+/**
+ * O "Guardar" montado: valor vindo do plano, o resto vindo do que está gravado.
+ *
+ * `degrauDeMetas` é `plano.degrau === 4` — o dinheiro do plano só é "pra meta"
+ * quando a cascata chegou lá; antes disso ele vai pro fôlego, pra dívida ou pra
+ * reserva.
+ */
+export function montarSistema(guardado: Guardado, aporte: number, degrauDeMetas: boolean): Grupo {
+  return {
+    id: SLUG_GRUPO_SISTEMA,
+    nome: SUGESTAO_SISTEMA?.nome ?? "Guardar",
+    icone: SUGESTAO_SISTEMA?.icone ?? "PiggyBank",
+    valor: aporte,
+    contaParaMeta: guardado.sistemaContaParaMeta ?? degrauDeMetas,
+    doSistema: true,
+    itens: guardado.itensDoSistema ?? [],
+    // chave ausente quando não há taxa: é o que faz o campo aparecer vazio, em
+    // vez de um 0% que ninguém digitou
+    ...(guardado.rendimentoDoSistema !== undefined
+      ? { rendimentoMensal: guardado.rendimentoDoSistema }
+      : {}),
+  };
+}
+
+/**
+ * O caminho de volta: a lista que a tela devolveu vira o que vai pro
+ * localStorage. O valor do "Guardar" fica de fora de propósito (ele é o aporte
+ * do plano, e mora no perfil quando ela escolhe um a dedo).
+ */
+export function paraGuardado(anterior: Guardado, lista: Grupo[], degrauDeMetas: boolean): Guardado {
+  const sistema = lista.find((g) => g.doSistema);
+  return {
+    ...anterior,
+    grupos: lista.filter((g) => !g.doSistema),
+    itensDoSistema: sistema?.itens?.length ? sistema.itens : undefined,
+    // só grava quando difere do padrão: assim o dia em que a cascata chegar nas
+    // metas a caixinha acompanha sozinha, pra quem nunca mexeu nela
+    sistemaContaParaMeta:
+      sistema !== undefined && sistema.contaParaMeta !== degrauDeMetas ? sistema.contaParaMeta : undefined,
+    // o valor do "Guardar" é do plano, mas a taxa é dela: sem esta linha o
+    // rendimento digitado aqui some no redesenho seguinte e nunca entra na
+    // projeção. `undefined` some do JSON — que é o que desligar a caixinha faz
+    rendimentoDoSistema: sistema?.rendimentoMensal,
+  };
+}
 
 export interface UsoDaOrganizacao {
   /** a lista completa, com o grupo do sistema na frente */
@@ -90,20 +151,10 @@ export function usarOrganizacao(plano: Plano): UsoDaOrganizacao {
   const aporteEditado = plano.perfil.aporteEscolhido !== undefined;
   const aporte = arredondar(Math.min(Math.max(0, plano.aporte), Math.max(0, base)));
 
-  const grupos = useMemo<Grupo[]>(() => {
-    const sistema: Grupo = {
-      id: SLUG_GRUPO_SISTEMA,
-      nome: SUGESTAO_SISTEMA?.nome ?? "Guardar",
-      icone: SUGESTAO_SISTEMA?.icone ?? "PiggyBank",
-      valor: aporte,
-      // o dinheiro do plano só é "pra meta" quando a cascata chegou nas metas:
-      // antes disso ele vai pro fôlego, pra dívida ou pra reserva
-      contaParaMeta: guardado.sistemaContaParaMeta ?? plano.degrau === 4,
-      doSistema: true,
-      itens: guardado.itensDoSistema ?? [],
-    };
-    return [sistema, ...guardado.grupos];
-  }, [aporte, plano.degrau, guardado.grupos, guardado.itensDoSistema, guardado.sistemaContaParaMeta]);
+  const grupos = useMemo<Grupo[]>(
+    () => [montarSistema(guardado, aporte, plano.degrau === 4), ...guardado.grupos],
+    [guardado, aporte, plano.degrau],
+  );
 
   const organizacao = useMemo(() => organizarExcedente(base, grupos), [base, grupos]);
 
@@ -113,17 +164,7 @@ export function usarOrganizacao(plano: Plano): UsoDaOrganizacao {
 
   const salvarGrupos = useCallback(
     (lista: Grupo[]) => {
-      const sistema = lista.find((g) => g.doSistema);
-      const padrao = plano.degrau === 4;
-      gravar({
-        ...ler(),
-        grupos: lista.filter((g) => !g.doSistema),
-        itensDoSistema: sistema?.itens?.length ? sistema.itens : undefined,
-        // só grava quando difere do padrão: assim o dia em que a cascata chegar
-        // nas metas a caixinha acompanha sozinha, pra quem nunca mexeu nela
-        sistemaContaParaMeta:
-          sistema !== undefined && sistema.contaParaMeta !== padrao ? sistema.contaParaMeta : undefined,
-      });
+      gravar(paraGuardado(ler(), lista, plano.degrau === 4));
     },
     [gravar, plano.degrau],
   );

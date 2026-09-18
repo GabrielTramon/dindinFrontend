@@ -85,6 +85,28 @@ function novoId(): string {
 */
 const MAX_PCT_RENDIMENTO = MAX_RENDIMENTO_MENSAL * 100;
 
+/*
+  O rendimento só muda um número na tela: o prazo da meta. Um grupo que não
+  conta pra meta pode render 5% ao mês que nada se mexe — e quem digitou a taxa
+  fica achando que a conta está quebrada. Então a linha embaixo do campo diz
+  onde aquele número vai cair, em vez de repetir o exemplo pra sempre.
+*/
+function recadoDoRendimento(grupo: Grupo, temMeta: boolean): string {
+  if ((grupo.rendimentoMensal ?? 0) >= MAX_RENDIMENTO_MENSAL) {
+    return `O máximo aqui é ${formatPct(MAX_RENDIMENTO_MENSAL)} ao mês.`;
+  }
+  if (grupo.rendimentoMensal === undefined) {
+    return "Ex.: 0,8 quer dizer 0,8% ao mês. O que está dentro deste grupo rende junto.";
+  }
+  if (!temMeta) {
+    return "Esse rendimento entra na conta quando você escolher uma meta — é no prazo dela que ele aparece.";
+  }
+  if (!grupo.contaParaMeta) {
+    return "Pra esse rendimento encurtar o prazo da meta, marque “Entra na minha meta” aqui em cima.";
+  }
+  return "Já está valendo: o prazo da sua meta ali embaixo considera esse rendimento.";
+}
+
 const ORGANIZADO_VAZIO = { pct: 0, restante: 0 };
 
 export interface GruposEditorProps {
@@ -477,7 +499,6 @@ function CartaoGrupo({
   const nome = nomeVisivel(grupo.nome);
   const sistema = grupo.doSistema === true;
   const cabeMaisItem = podeAdicionarItem(grupo);
-  const noTetoDoRendimento = (grupo.rendimentoMensal ?? 0) >= MAX_RENDIMENTO_MENSAL;
   // a diferença é medida em reais inteiros: a tela mostra sem centavos, e avisar
   // por causa de R$ 0,35 seria avisar por causa do arredondamento
   const mudouOAporte =
@@ -640,9 +661,7 @@ function CartaoGrupo({
                 onChange={onRendimento}
               />
               <p aria-live="polite" className="text-sm text-ink-2">
-                {noTetoDoRendimento
-                  ? `O máximo aqui é ${formatPct(MAX_RENDIMENTO_MENSAL)} ao mês.`
-                  : "Ex.: 0,8 quer dizer 0,8% ao mês. O que está dentro deste grupo rende junto."}
+                {recadoDoRendimento(grupo, temMeta)}
               </p>
             </div>
           )}
