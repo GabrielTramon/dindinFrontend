@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import { IconeCategoria } from "@/components/categorias/icone-categoria";
 import { ctaClasses } from "@/components/layout/cta-link";
 import { MoneyInput } from "@/components/onboarding/money-input";
-import { NumberInput } from "@/components/onboarding/number-input";
 import {
   ajustarProporcionalmente,
   gruposSugeridosPara,
@@ -21,7 +20,7 @@ import {
   type Organizacao,
   type TipoRenda,
 } from "@/domain";
-import { arredondar, formatBRL, formatPct } from "@/lib/format";
+import { formatBRL, formatPct, mascaraTaxa, taxaDoTexto, textoDaTaxa } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /*
@@ -76,26 +75,15 @@ function novoId(): string {
 }
 
 /*
-  Rendimento é guardado como fração (0,8% ao mês = 0.008) e digitado com uma
-  casa decimal, da direita pra esquerda: "8" vira 0,8%. O teto do domínio é
-  aplicado na leitura — um dedo a mais no teclado projetaria a meta em três
-  meses e transformaria o plano em ficção.
+  Rendimento é guardado como fração (0,8% ao mês = 0.008) e digitado como
+  porcentagem, do jeito que a pessoa fala: "0,8" é 0,8% e "1" é 1%.
+
+  A primeira versão usava máscara da direita pra esquerda (como o campo de
+  dinheiro) e isso quebrava na mão de quem digita: o "0" de "0,8" sumia (zero
+  virava campo vazio) e um "1" sozinho virava 0,1%. Campo de taxa não é campo de
+  centavo — aqui o texto digitado é a fonte, e o número sai dele.
 */
-const MAX_DIGITOS_RENDIMENTO = 3;
-
-function lerRendimento(texto: string): number | undefined {
-  const digitos = texto.replace(/\D/g, "").slice(0, MAX_DIGITOS_RENDIMENTO);
-  const fracao = arredondar(Number(digitos || "0") / 1000, 5);
-  // zero é o mesmo que não ter declarado nada — e é isso que deixa o campo
-  // voltar a ficar vazio no backspace, em vez de travar num "0,0"
-  if (fracao <= 0) return undefined;
-  return Math.min(fracao, MAX_RENDIMENTO_MENSAL);
-}
-
-function mostrarRendimento(fracao: number): string {
-  const pct = Math.max(0, fracao) * 100;
-  return pct.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-}
+const MAX_PCT_RENDIMENTO = MAX_RENDIMENTO_MENSAL * 100;
 
 const ORGANIZADO_VAZIO = { pct: 0, restante: 0 };
 
@@ -646,17 +634,10 @@ function CartaoGrupo({
 
           {rendimentoAberto && (
             <div className="grid min-w-0 gap-1.5 pl-8">
-              <NumberInput
+              <CampoTaxa
                 id={idRendimento(grupo.id)}
-                label="Quanto rende ao mês"
-                size="md"
-                suffix="% ao mês"
-                placeholder="0,0"
-                value={grupo.rendimentoMensal}
+                valor={grupo.rendimentoMensal}
                 onChange={onRendimento}
-                parse={lerRendimento}
-                format={mostrarRendimento}
-                className="max-w-64"
               />
               <p aria-live="polite" className="text-sm text-ink-2">
                 {noTetoDoRendimento
@@ -667,6 +648,53 @@ function CartaoGrupo({
           )}
         </div>
       </fieldset>
+    </div>
+  );
+}
+
+interface CampoTaxaProps {
+  id: string;
+  valor: number | undefined;
+  onChange: (fracao: number | undefined) => void;
+}
+
+/**
+ * O campo do rendimento. Tem estado próprio de propósito: o texto é a fonte
+ * enquanto a pessoa digita ("0," não é número nenhum, mas precisa ficar na
+ * tela), e o valor do domínio é derivado dele. Ao sair do campo, o texto volta
+ * a ser o do valor guardado — quem digitou "0," sem terminar vê o campo limpo.
+ */
+function CampoTaxa({ id, valor, onChange }: CampoTaxaProps) {
+  const [digitado, setDigitado] = useState<string | null>(null);
+  const texto = digitado ?? textoDaTaxa(valor);
+
+  function digitar(bruto: string) {
+    const limpo = mascaraTaxa(bruto, MAX_PCT_RENDIMENTO);
+    setDigitado(limpo);
+    onChange(taxaDoTexto(limpo, MAX_PCT_RENDIMENTO) ?? undefined);
+  }
+
+  return (
+    <div className="grid min-w-0 gap-2 max-w-64">
+      <label htmlFor={id} className="sr-only">
+        Quanto rende ao mês
+      </label>
+      <div className="flex h-14 min-w-0 items-center gap-2 rounded-2xl border border-input bg-card px-5 transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 motion-reduce:transition-none">
+        <input
+          id={id}
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
+          value={texto}
+          placeholder="0,8"
+          onChange={(e) => digitar(e.target.value)}
+          onBlur={() => setDigitado(null)}
+          className="w-0 min-w-0 flex-1 bg-transparent text-xl font-bold text-foreground tabular-nums outline-none placeholder:text-ink-3"
+        />
+        <span aria-hidden="true" className="shrink-0 text-sm font-bold text-ink-3">
+          % ao mês
+        </span>
+      </div>
     </div>
   );
 }
