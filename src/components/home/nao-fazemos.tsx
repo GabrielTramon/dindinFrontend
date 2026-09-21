@@ -1,8 +1,10 @@
-import { X } from "lucide-react";
 import { Secao, TituloSecao } from "@/components/home/secao";
+import { Reveal } from "@/components/motion/reveal";
+import { XDraw } from "@/components/ui/drawn-icon";
 
 /*
   O que o dindin não faz é parte do produto. Lista simples, sem card.
+  Os itens entram em cascata ao rolar e o X se desenha quando revelado.
 */
 
 const ITENS = [
@@ -26,14 +28,14 @@ export function NaoFazemos() {
       <TituloSecao id="nao-fazemos-titulo">O que o dindin não faz</TituloSecao>
 
       <ul className="mt-8 max-w-2xl space-y-6">
-        {ITENS.map((item) => (
-          <li key={item.titulo} className="flex gap-3">
-            <X aria-hidden="true" className="mt-1 size-5 shrink-0 text-warn" />
+        {ITENS.map((item, i) => (
+          <Reveal as="li" i={i} key={item.titulo} className="flex gap-3">
+            <XDraw className="mt-1 size-5 shrink-0 text-warn" delay={i * 40} />
             <div>
               <h3 className="text-lg font-extrabold">{item.titulo}</h3>
               <p className="mt-1 text-ink-2">{item.texto}</p>
             </div>
-          </li>
+          </Reveal>
         ))}
       </ul>
     </Secao>

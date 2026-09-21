@@ -1,3 +1,4 @@
+import { Pill } from "@/components/ui/pill";
 import { ROTULO_DEGRAU, type Degrau } from "@/domain";
 
 /*
@@ -14,14 +15,12 @@ export function Cabecalho({ degrau }: { degrau: Degrau }) {
 
   return (
     <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-        Seu plano de {periodo}
-      </p>
-      <p className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-bold text-ink-2">
+      <p className="eyebrow">Seu plano de {periodo}</p>
+      <Pill size="sm" tone="outline">
         <span className="sr-only">Degrau atual:</span>
         <span className="text-muted-foreground tnum">0{degrau}</span>
         {ROTULO_DEGRAU[degrau]}
-      </p>
+      </Pill>
     </div>
   );
 }

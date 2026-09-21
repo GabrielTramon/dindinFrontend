@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
+import { PageTransition } from "@/components/motion/page-transition";
 import { Hero } from "@/components/home/hero";
 import { ComoFunciona } from "@/components/home/como-funciona";
 import { OrdemCerta } from "@/components/home/ordem-certa";
@@ -19,15 +20,17 @@ export default function HomePage() {
   return (
     <>
       <SiteHeader />
-      <main className="flex-1">
-        <Hero />
-        <ComoFunciona />
-        <OrdemCerta />
-        <NaoFazemos />
-        <Faq />
-        <CtaFinal />
-      </main>
-      <SiteFooter />
+      <PageTransition>
+        <main className="flex-1">
+          <Hero />
+          <ComoFunciona />
+          <OrdemCerta />
+          <NaoFazemos />
+          <Faq />
+          <CtaFinal />
+        </main>
+        <SiteFooter />
+      </PageTransition>
     </>
   );
 }

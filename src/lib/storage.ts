@@ -15,6 +15,8 @@ export const STORAGE_KEYS = {
    * grupos estranha não pode derrubar o plano da tela.
    */
   organizacao: "dindin:organizacao:v1",
+  /** preferência de tema: "light" | "dark" (chave ausente = segue o sistema) */
+  tema: "dindin:tema:v1",
 } as const;
 
 function disponivel(): boolean {

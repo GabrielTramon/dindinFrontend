@@ -11,6 +11,10 @@ import type { DividaRascunho } from "./respostas";
   A pergunta 7. Primeiro "devo ou não devo"; se deve, uma lista de dívidas
   (mínimo 1, máximo MAX_DIVIDAS), cada uma com tipo, saldo e parcela opcional.
   `dividas` undefined = ainda não respondeu; [] = não devo nada.
+
+  Sem card por dívida: divisórias. Uma dívida nova assenta subindo (enter-up,
+  @starting-style). Sem motion aqui de propósito: as chaves são índices, e a
+  saída não é animada.
 */
 
 type Escolha = "nao" | "sim";
@@ -89,7 +93,8 @@ export function DividasEditor({ dividas, onChange, legend, describedBy }: Divida
         <div className="grid gap-4">
           <ul className="grid gap-4">
             {lista.map((divida, i) => (
-              <li key={i}>
+              // a divisória fica no li: o div de dentro é sempre o primeiro filho do li, e `first:` nunca a tiraria
+              <li key={i} className="enter-up border-t pt-4 first:border-t-0 first:pt-0">
                 <DividaItem
                   numero={i + 1}
                   divida={divida}
@@ -130,17 +135,9 @@ function DividaItem({ numero, divida, podeRemover, onEdit, onRemove }: DividaIte
   const tituloId = idDoTitulo(numero);
 
   return (
-    <div
-      role="group"
-      aria-labelledby={tituloId}
-      className="grid gap-4 rounded-2xl border border-border bg-card p-4"
-    >
+    <div role="group" aria-labelledby={tituloId} className="grid gap-4">
       <div className="flex min-h-11 items-center justify-between gap-3">
-        <h2
-          id={tituloId}
-          tabIndex={-1}
-          className="text-xs font-bold tracking-wider text-muted-foreground uppercase outline-none"
-        >
+        <h2 id={tituloId} tabIndex={-1} className="eyebrow outline-none">
           Dívida {numero}
         </h2>
         {podeRemover && (
@@ -156,7 +153,7 @@ function DividaItem({ numero, divida, podeRemover, onEdit, onRemove }: DividaIte
       </div>
 
       <div className="grid gap-2">
-        <p className="text-xs font-bold tracking-wider text-muted-foreground uppercase">Tipo</p>
+        <p className="eyebrow">Tipo</p>
         <ChipsRadio
           name={`${prefixo}-tipo`}
           options={OPCOES_TIPO}

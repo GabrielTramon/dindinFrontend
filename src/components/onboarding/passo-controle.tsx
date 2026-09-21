@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Moradia, TipoRenda } from "@/domain";
 import { cn } from "@/lib/utils";
 import { ChipsValor } from "./chips";
@@ -17,8 +18,6 @@ import { ValueSlider } from "./value-slider";
   fica só como cada uma é respondida. A linha de erro vem colada no campo
   (e não depois dos chips e do slider), pra ler como parte dele.
 */
-
-const BRL: Intl.NumberFormatOptions = { style: "currency", currency: "BRL", maximumFractionDigits: 0 };
 
 const OPCOES_RENDA: readonly { value: TipoRenda; titulo: string; descricao: string }[] = [
   { value: "clt", titulo: "Salário fixo", descricao: "CLT, cai todo mês mais ou menos igual" },
@@ -109,6 +108,7 @@ export function PassoControle({ passo, respostas, onChange, erro, ids, described
       );
 
     case "idade":
+      // sem chips aqui: o slider NÃO dispara o flash do campo
       return (
         <div className="grid gap-5">
           <div className="grid gap-2">
@@ -222,8 +222,10 @@ interface CampoValorProps {
   invalid: boolean;
 }
 
-/** Valor em reais com atalhos: o formato das perguntas 5, 6 e 8. */
+/** Valor em reais com atalhos: o formato das perguntas 5, 6 e 8. Tocar num chip faz o campo piscar o anel (flashKey). */
 function CampoValor({ pergunta, valores, value, onChange, erro, ids, describedBy, invalid }: CampoValorProps) {
+  const [flash, setFlash] = useState(0);
+
   return (
     <div className="grid gap-5">
       <div className="grid gap-2">
@@ -236,19 +238,35 @@ function CampoValor({ pergunta, valores, value, onChange, erro, ids, describedBy
           onChange={onChange}
           describedBy={describedBy}
           invalid={invalid}
+          flashKey={flash}
         />
         <LinhaErro id={ids.erro} erro={erro} />
       </div>
-      <ChipsValor valores={valores} value={value} onChange={onChange} />
+      <ChipsValor
+        valores={valores}
+        value={value}
+        onChange={(n) => {
+          onChange(n);
+          setFlash((f) => f + 1);
+        }}
+      />
     </div>
   );
 }
 
-/** A linha de erro do passo. Vazia, fica sr-only mas no DOM: é a região live que anuncia o erro quando ele aparece. */
+/**
+ * A linha de erro do passo. Vazia, fica sr-only mas no DOM: é a região live que
+ * anuncia o erro quando ele aparece. O texto remonta (key) e sobe suave a cada
+ * mensagem nova; a região em si nunca sai do DOM.
+ */
 function LinhaErro({ id, erro }: { id: string; erro?: string }) {
   return (
     <p id={id} aria-live="polite" className={cn("text-sm font-bold text-warn", !erro && "sr-only")}>
-      {erro}
+      {erro && (
+        <span key={erro} className="rise-in block">
+          {erro}
+        </span>
+      )}
     </p>
   );
 }

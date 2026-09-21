@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { brutoParaLiquido, TABELAS_FOLHA, type RendaInformada } from "@/domain";
+import { CountUp } from "@/components/motion/count-up";
 import { formatBRL } from "@/lib/format";
 import { ChipsValor } from "./chips";
 import { MoneyInput } from "./money-input";
@@ -18,10 +19,14 @@ import { ValueSlider } from "./value-slider";
   perderia 3 meses de reserva.
 
   Bruto vira líquido na hora, e `rendaMensal` é atualizada junto: é ela que o
-  motor usa e que o passo valida.
+  motor usa e que o passo valida. O bloco da estimativa assenta ao aparecer e o
+  líquido conta até o valor.
 */
 
 const BRL: Intl.NumberFormatOptions = { style: "currency", currency: "BRL", maximumFractionDigits: 0 };
+
+/** formato do líquido (único valor com centavos na UI); nível de módulo: função inline reiniciaria a contagem a cada render */
+const brlCentavos = (n: number) => formatBRL(n, { centavos: true });
 
 const OPCOES: readonly { value: RendaInformada; rotulo: string }[] = [
   { value: "liquida", rotulo: "O que cai na conta" },
@@ -40,6 +45,7 @@ interface RendaControleProps {
 }
 
 export function RendaControle({ respostas, onChange, ids, describedBy, invalid, erro, pergunta }: RendaControleProps) {
+  const [flash, setFlash] = useState(0);
   const informada: RendaInformada = respostas.rendaInformada ?? "liquida";
   const ehBruto = informada === "bruta";
   const holerite =
@@ -95,7 +101,7 @@ export function RendaControle({ respostas, onChange, ids, describedBy, invalid, 
                 />
                 <label
                   htmlFor={id}
-                  className="flex min-h-11 w-full cursor-pointer items-center justify-center rounded-xl border border-border bg-card px-3 text-center text-sm leading-tight font-bold transition-colors select-none hover:border-ink-3 peer-checked:border-primary peer-checked:bg-accent peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50 motion-reduce:transition-none"
+                  className="press flex min-h-11 w-full cursor-pointer items-center justify-center rounded-full border border-border bg-card px-3 text-center text-sm leading-tight font-bold select-none hover:border-border-strong peer-checked:border-primary peer-checked:bg-accent peer-checked:shadow-card peer-focus-visible:ring-3 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background"
                 >
                   {o.rotulo}
                 </label>
@@ -116,20 +122,21 @@ export function RendaControle({ respostas, onChange, ids, describedBy, invalid, 
           onChange={(v) => (ehBruto ? mudarBruto(v) : onChange({ rendaMensal: v }))}
           describedBy={describedBy}
           invalid={invalid}
+          flashKey={flash}
         />
         {erro}
       </div>
 
       {ehBruto ? (
         <>
-          <div className="grid gap-2 rounded-2xl border border-border bg-card p-4">
+          <div className="enter-up grid gap-2 rounded-2xl bg-accent p-4">
             <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-2">
-              <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                Estimativa do líquido
-              </span>
-              <span className="tnum text-xl font-bold text-foreground">
-                {holerite ? formatBRL(holerite.liquido, { centavos: true }) : "—"}
-              </span>
+              <span className="eyebrow">Estimativa do líquido</span>
+              {holerite ? (
+                <CountUp value={holerite.liquido} format={brlCentavos} className="tnum text-xl font-bold text-foreground" />
+              ) : (
+                <span className="tnum text-xl font-bold text-foreground">—</span>
+              )}
             </div>
             {holerite && (
               <p className="tnum text-sm text-ink-2">
@@ -150,17 +157,14 @@ export function RendaControle({ respostas, onChange, ids, describedBy, invalid, 
             <button
               type="button"
               onClick={() => trocarModo("liquida")}
-              className="justify-self-start text-sm font-bold text-primary underline underline-offset-4"
+              className="press inline-flex min-h-11 items-center justify-self-start rounded-md text-sm font-bold text-primary underline underline-offset-4 outline-none hover:text-brand-deep focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               Não bateu? Digitar o líquido
             </button>
           </div>
 
           <div className="grid min-w-0 gap-2">
-            <label
-              htmlFor="renda-dependentes"
-              className="text-xs font-bold tracking-wider text-muted-foreground uppercase"
-            >
+            <label htmlFor="renda-dependentes" className="eyebrow">
               Dependentes no imposto de renda
             </label>
             <NumberInput
@@ -183,7 +187,10 @@ export function RendaControle({ respostas, onChange, ids, describedBy, invalid, 
           <ChipsValor
             valores={[1500, 2500, 4000, 6000]}
             value={respostas.rendaMensal}
-            onChange={(rendaMensal) => onChange({ rendaMensal })}
+            onChange={(rendaMensal) => {
+              onChange({ rendaMensal });
+              setFlash((f) => f + 1);
+            }}
           />
           <ValueSlider
             value={respostas.rendaMensal}

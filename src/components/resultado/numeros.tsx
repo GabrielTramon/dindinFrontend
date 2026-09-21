@@ -1,11 +1,11 @@
+import { Stat } from "@/components/ui/stat";
 import type { Resumo } from "@/domain";
-import { formatBRL } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 /*
   Três números que resumem o mês: o que entra, o que sai, o que sobra.
   Quando falta, o terceiro vira "Falta"; sem sobra (zero ou negativo) fica
-  em warn — é a única coisa ruim de verdade aqui.
+  em warn — é a única coisa ruim de verdade aqui. Os três contam em
+  sequência (0 / 150 / 300ms); a Sobra é o número grande.
 */
 
 export function Numeros({ resumo }: { resumo: Resumo }) {
@@ -16,39 +16,25 @@ export function Numeros({ resumo }: { resumo: Resumo }) {
       <h2 id="numeros-titulo" className="text-lg font-extrabold tracking-tight sm:text-xl">
         Seu mês em números
       </h2>
-      <dl className="mt-4 grid grid-cols-3 gap-3 sm:gap-6">
-        <Numero rotulo="Entra" valor={resumo.renda} />
-        <Numero rotulo="Sai" valor={resumo.custoTotal} nota="moradia + fixos + parcelas" />
-        <Numero
-          rotulo={falta ? "Falta" : "Sobra"}
-          valor={Math.abs(resumo.excedente)}
-          alerta={resumo.excedente <= 0}
+      <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 sm:gap-6">
+        <Stat label="Entra" value={resumo.renda} count />
+        <Stat
+          label="Sai"
+          value={resumo.custoTotal}
+          nota="moradia + fixos + parcelas"
+          count
+          delay={150}
+        />
+        <Stat
+          label={falta ? "Falta" : "Sobra"}
+          value={Math.abs(resumo.excedente)}
+          tone={resumo.excedente <= 0 ? "warn" : "primary"}
+          size="lg"
+          count
+          delay={300}
+          className="col-span-2 sm:col-span-1"
         />
       </dl>
     </section>
-  );
-}
-
-type NumeroProps = {
-  rotulo: string;
-  valor: number;
-  nota?: string;
-  alerta?: boolean;
-};
-
-function Numero({ rotulo, valor, nota, alerta = false }: NumeroProps) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-xs font-bold tracking-wider text-muted-foreground uppercase">{rotulo}</dt>
-      <dd
-        className={cn(
-          "mt-1 text-xl font-extrabold tracking-tight tnum sm:text-2xl",
-          alerta && "text-warn",
-        )}
-      >
-        {formatBRL(valor)}
-      </dd>
-      {nota && <dd className="mt-0.5 text-xs text-muted-foreground">{nota}</dd>}
-    </div>
   );
 }

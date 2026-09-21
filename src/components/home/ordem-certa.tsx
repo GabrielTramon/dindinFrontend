@@ -1,11 +1,15 @@
 import { ROTULO_DEGRAU, type Degrau } from "@/domain";
 import { cn } from "@/lib/utils";
 import { Secao, TituloSecao } from "@/components/home/secao";
+import { Reveal } from "@/components/motion/reveal";
 
 /*
   O diferencial do produto: a cascata. Os rótulos vêm do domínio pra nunca
   divergir do que a tela do plano mostra. O degrau da dívida cara ganha
   destaque porque é onde a maioria começa — e onde mais se erra.
+  Os degraus entram em cascata ao rolar e, a partir de sm, cada um recua
+  0.75rem a mais (escada-degrau); a barra warn do destaque acende de cima
+  pra baixo 300ms depois (mark-warn).
 */
 
 const DEGRAUS: Degrau[] = [0, 1, 2, 3, 4];
@@ -37,18 +41,17 @@ export function OrdemCerta() {
           {DEGRAUS.map((degrau) => {
             const destaque = degrau === DEGRAU_DESTAQUE;
             return (
-              <li
+              <Reveal
+                as="li"
+                i={degrau}
                 key={degrau}
                 className={cn(
-                  "grid grid-cols-[2.5rem_1fr] gap-x-3 border-t border-l-2 border-l-transparent py-5 pl-4 last:border-b",
-                  destaque && "border-l-warn",
+                  "escada-degrau grid grid-cols-[2.5rem_1fr] gap-x-3 rounded-lg border-t py-5 pl-4 transition-[background-color] duration-(--duration-base) last:border-b hover:bg-accent motion-reduce:transition-none",
+                  destaque && "mark-warn",
                 )}
               >
                 <span
-                  className={cn(
-                    "tnum pt-1 font-mono text-sm text-muted-foreground",
-                    destaque && "text-warn",
-                  )}
+                  className={cn("tnum pt-1 text-sm text-muted-foreground", destaque && "text-warn")}
                 >
                   {String(degrau).padStart(2, "0")}
                 </span>
@@ -56,7 +59,7 @@ export function OrdemCerta() {
                   <h3 className="text-lg font-extrabold">{ROTULO_DEGRAU[degrau]}</h3>
                   <p className="mt-1 text-ink-2">{EXPLICACAO[degrau]}</p>
                 </div>
-              </li>
+              </Reveal>
             );
           })}
         </ol>

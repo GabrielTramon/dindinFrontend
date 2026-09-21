@@ -1,8 +1,10 @@
 import { Secao, TituloSecao } from "@/components/home/secao";
+import { Reveal } from "@/components/motion/reveal";
 
 /*
   Três passos numerados — é uma sequência de verdade, então o número importa.
-  Sem card: número grande, título, uma frase.
+  Sem card: número grande, título, uma frase. Cada passo entra ao rolar em
+  cascata (Reveal) e a divisória de cima se desenha da esquerda (rule-draw).
 */
 
 const PASSOS = [
@@ -30,16 +32,16 @@ export function ComoFunciona() {
 
       <ol className="mt-10 grid gap-10 md:grid-cols-3 md:gap-8">
         {PASSOS.map((passo, i) => (
-          <li key={passo.titulo} className="border-t pt-5">
+          <Reveal as="li" i={i} key={passo.titulo} className="rule-draw pt-5">
             <span
               aria-hidden="true"
-              className="tnum text-4xl font-extrabold text-primary sm:text-5xl"
+              className="tnum number-glow text-5xl font-extrabold text-primary sm:text-6xl"
             >
               {i + 1}
             </span>
             <h3 className="mt-4 text-xl font-extrabold tracking-tight">{passo.titulo}</h3>
             <p className="mt-2 text-ink-2">{passo.texto}</p>
-          </li>
+          </Reveal>
         ))}
       </ol>
     </Secao>

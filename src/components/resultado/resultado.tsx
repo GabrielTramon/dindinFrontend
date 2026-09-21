@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore, type ReactNode } from "react";
+import { staggerStyle } from "@/components/motion/stagger";
 import { gerarPlano, projetarMeta, validarPerfil, type Perfil, type Ritmo } from "@/domain";
 import { readJSON, STORAGE_KEYS, subscribeStorage, writeJSON } from "@/lib/storage";
 import { Acoes } from "./acoes";
@@ -68,6 +69,9 @@ export function Resultado() {
   );
 }
 
+/** a cascata de entrada para na 7ª seção: a página não fica esperando o rodapé */
+const MAX_STAGGER = 6;
+
 function PlanoCompleto({ perfil }: { perfil: Perfil }) {
   // o aporte escolhido a dedo já faz parte do perfil, então um gerarPlano só
   const plano = useMemo(() => gerarPlano(perfil), [perfil]);
@@ -84,7 +88,8 @@ function PlanoCompleto({ perfil }: { perfil: Perfil }) {
   function escolherRitmo(ritmo: Ritmo) {
     // escolher um ritmo descarta um "Guardar" editado a dedo: senão a pessoa
     // tocaria no cartão e nada mudaria, porque o valor manual continuaria mandando
-    const { aporteEscolhido: _descartado, ...resto } = perfil;
+    const resto = { ...perfil };
+    delete resto.aporteEscolhido; // chave ausente, nunca `undefined`: igual ao perfil de quem nunca editou
     writeJSON(STORAGE_KEYS.perfil, { ...resto, ritmo });
   }
 
@@ -101,31 +106,48 @@ function PlanoCompleto({ perfil }: { perfil: Perfil }) {
       new Date(),
     );
 
-  return (
-    <div className="space-y-10 sm:space-y-14">
-      <Cabecalho degrau={plano.degrau} />
-      <Decisao decisao={plano.decisao} modoCorte={plano.modoCorte} />
-      <Escada degrau={plano.degrau} />
-      <Numeros resumo={plano.resumo} />
-      {plano.corte ? (
-        <Corte corte={plano.corte} />
-      ) : (
-        <Destino aporte={plano.aporte} livre={plano.livre} alocacoes={plano.alocacoes} />
-      )}
-      <Detalhes
-        folego={plano.folego}
-        reserva={plano.reserva}
-        dividas={plano.dividas}
-        gastosFixos={plano.gastosFixos}
+  /*
+    Cada seção entra por `enter-up` (@starting-style) com cascata de 60ms —
+    é o que faz o plano "se montar" quando o esqueleto sai. RitmoSeletor e
+    GruposEditor devolvem null em modo corte (excedente ≤ 0, que é exatamente
+    `plano.modoCorte`); ficar fora da lista evita um envelope vazio ocupando
+    o espaço do space-y.
+  */
+  const secoes: ReactNode[] = [
+    <Cabecalho key="cabecalho" degrau={plano.degrau} />,
+    <Decisao key="decisao" decisao={plano.decisao} modoCorte={plano.modoCorte} />,
+    <Escada key="escada" degrau={plano.degrau} />,
+    <Numeros key="numeros" resumo={plano.resumo} />,
+    plano.corte ? (
+      <Corte key="corte" corte={plano.corte} />
+    ) : (
+      <Destino
+        key="destino"
+        aporte={plano.aporte}
+        livre={plano.livre}
+        alocacoes={plano.alocacoes}
       />
-      <ProximosPassos passos={plano.proximosPassos} />
+    ),
+    <Detalhes
+      key="detalhes"
+      folego={plano.folego}
+      reserva={plano.reserva}
+      dividas={plano.dividas}
+      gastosFixos={plano.gastosFixos}
+    />,
+    <ProximosPassos key="passos" passos={plano.proximosPassos} />,
+    plano.modoCorte ? null : (
       <RitmoSeletor
+        key="ritmo"
         perfil={perfil}
         ritmo={plano.ritmo}
         onChange={escolherRitmo}
         personalizado={organizacao.aporteEditado}
       />
+    ),
+    plano.modoCorte ? null : (
       <GruposEditor
+        key="grupos"
         base={plano.resumo.excedente}
         organizacao={organizacao.organizacao}
         grupos={organizacao.grupos}
@@ -137,16 +159,27 @@ function PlanoCompleto({ perfil }: { perfil: Perfil }) {
         temMeta={perfil.meta !== undefined}
         descricaoDoSistema={plano.alocacoes.map((a) => a.titulo).join(" · ")}
       />
-      {perfil.meta && projecao && (
-        <MetaCard
-          meta={perfil.meta}
-          projecao={projecao}
-          degrauDeMetas={plano.degrau === 4}
-          grupos={organizacao.grupos}
-        />
-      )}
-      <Acoes />
-      <Aviso />
+    ),
+    perfil.meta && projecao ? (
+      <MetaCard
+        key="meta"
+        meta={perfil.meta}
+        projecao={projecao}
+        degrauDeMetas={plano.degrau === 4}
+        grupos={organizacao.grupos}
+      />
+    ) : null,
+    <Acoes key="acoes" />,
+    <Aviso key="aviso" />,
+  ].filter(Boolean);
+
+  return (
+    <div className="space-y-10 sm:space-y-14">
+      {secoes.map((secao, i) => (
+        <div key={i} className="enter-up" style={staggerStyle(Math.min(i, MAX_STAGGER))}>
+          {secao}
+        </div>
+      ))}
     </div>
   );
 }

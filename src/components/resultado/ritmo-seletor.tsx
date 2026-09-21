@@ -1,6 +1,10 @@
 "use client";
 
+import { m } from "motion/react";
 import { useMemo } from "react";
+import { SPRING_SNAPPY } from "@/components/motion/springs";
+import { Pill } from "@/components/ui/pill";
+import { SegmentBar } from "@/components/ui/segment-bar";
 import {
   gerarPlano,
   MARGEM_MINIMA_CORTE,
@@ -26,6 +30,11 @@ import { cn } from "@/lib/utils";
   Os números não são recalculados aqui: cada cartão roda o próprio `gerarPlano`
   com o mesmo perfil e um ritmo diferente. É a mesma conta que a página mostra,
   então o cartão nunca promete um número que o plano não entrega.
+
+  O destaque do ritmo escolhido é um m.span com layoutId: ao trocar, a borda e
+  a sombra deslizam fisicamente de um cartão pro outro (domMax, mola SNAPPY).
+  O brilho que segue o cursor é o span `spotlight` (SpotlightTracker escreve
+  --mx/--my no [data-spotlight]).
 */
 
 const ROTULO: Record<Ritmo, string> = {
@@ -138,14 +147,26 @@ function CartaoRitmo({ ritmo, plano, selecionado, onSelect }: CartaoRitmoProps) 
       />
       <label
         htmlFor={id}
-        className="flex h-full min-h-14 min-w-0 cursor-pointer flex-col gap-2 rounded-2xl border border-border bg-card px-4 py-4 transition-colors select-none hover:border-ink-3 peer-checked:border-primary peer-checked:bg-accent peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50 motion-reduce:transition-none"
+        data-spotlight
+        data-checked={selecionado || undefined}
+        className="press glow-card relative isolate flex h-full min-h-14 min-w-0 cursor-pointer flex-col gap-2 rounded-2xl border border-border bg-card px-4 py-4 select-none hover:border-border-strong data-checked:border-primary data-checked:bg-accent peer-focus-visible:ring-3 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background"
       >
+        <span aria-hidden="true" className="spotlight" />
+        {selecionado && (
+          <m.span
+            layoutId="ritmo-ativo"
+            aria-hidden="true"
+            transition={SPRING_SNAPPY}
+            className="pointer-events-none absolute -inset-px rounded-2xl border-2 border-primary shadow-card-hover"
+          />
+        )}
+
         <span className="flex min-w-0 items-center justify-between gap-2">
           <span className="min-w-0 font-bold leading-snug text-foreground">{ROTULO[ritmo]}</span>
           {ritmo === RITMO_PADRAO && (
-            <span className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-xs font-bold text-primary-foreground">
+            <Pill size="sm" tone="solid">
               sugerido
-            </span>
+            </Pill>
           )}
         </span>
 
@@ -159,17 +180,15 @@ function CartaoRitmo({ ritmo, plano, selecionado, onSelect }: CartaoRitmoProps) 
         </span>
 
         {/* decorativa: os dois valores já estão escritos na linha de cima */}
-        <span
-          aria-hidden="true"
-          className="flex h-1.5 min-w-0 overflow-hidden rounded-full bg-muted"
-        >
-          <span className="min-w-0 basis-0 bg-primary" style={{ flexGrow: plano.aporte }} />
-          <span className="min-w-0 basis-0 bg-chart-3" style={{ flexGrow: plano.livre }} />
-        </span>
+        <SegmentBar
+          height="sm"
+          segments={[
+            { value: plano.aporte, className: "bg-primary" },
+            { value: plano.livre, className: "bg-chart-3" },
+          ]}
+        />
 
-        <span className="mt-auto border-t border-border pt-2 text-sm text-ink-2">
-          {diferenca(plano)}
-        </span>
+        <span className="mt-auto border-t pt-2 text-sm text-ink-2">{diferenca(plano)}</span>
 
         {plano.piso.mordeu && <span className="text-xs text-ink-2">{textoDoPiso(plano)}</span>}
       </label>

@@ -1,7 +1,9 @@
 "use client";
 
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
+import { STEP, STEP_REDUCED } from "@/components/motion/springs";
 import { validarPerfil } from "@/domain";
 import { removeKey, STORAGE_KEYS, writeJSON } from "@/lib/storage";
 import { Navegacao } from "./navegacao";
@@ -24,6 +26,10 @@ import { lerRespostasSalvas, montarPerfil, type Respostas } from "./respostas";
   O wizard. O passo atual vem da URL (?p=N, 1-based, posição fixa entre as 8),
   então o botão voltar do navegador funciona. As respostas ficam em estado e
   vão pro localStorage a cada mudança; no fim, viram o perfil validado.
+
+  A troca de passo não é view transition (?p=N é a mesma rota): é o
+  AnimatePresence do motion, com direção (frente: sai pra esquerda, entra da
+  direita; voltar: o inverso). Progresso e Navegacao ficam fora dele.
 */
 
 const IDS = {
@@ -45,6 +51,7 @@ interface ErroFinal {
 export function Onboarding() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const reduzido = useReducedMotion();
 
   const [respostas, setRespostas] = useState<Respostas>({});
   const [pronto, setPronto] = useState(false);
@@ -72,6 +79,12 @@ export function Onboarding() {
   useEffect(() => {
     if (pronto && indice !== pedido) router.replace(urlDoPasso(indice));
   }, [pronto, indice, pedido, router]);
+
+  // Direção do slide (frente = 1, voltar = -1): estado derivado do passo anterior, ajustado
+  // durante o render (padrão do React); um ref lido no render seria barrado pelo lint do compiler.
+  const [ultimo, setUltimo] = useState({ indice, direcao: 1 });
+  if (ultimo.indice !== indice) setUltimo({ indice, direcao: indice > ultimo.indice ? 1 : -1 });
+  const direcao = ultimo.indice === indice ? ultimo.direcao : indice > ultimo.indice ? 1 : -1;
 
   if (!pronto) return <OnboardingSkeleton />;
 
@@ -102,7 +115,7 @@ export function Onboarding() {
         return;
       }
       removeKey(STORAGE_KEYS.rascunho);
-      router.push("/plano/resultado");
+      router.push("/plano/resultado", { transitionTypes: ["nav-forward"] });
       return;
     }
 
@@ -127,27 +140,38 @@ export function Onboarding() {
   }
 
   return (
-    <form onSubmit={aoEnviar} className="flex flex-1 flex-col">
+    <form onSubmit={aoEnviar} className="enter-up flex flex-1 flex-col">
       <div className="mx-auto w-full max-w-lg flex-1 px-4 pt-[5vh] pb-12 sm:px-6">
         <div className="grid gap-8">
           <Progresso atual={posicao} total={visiveis.length} />
-          <Passo
-            key={passo.id}
-            id={passo.id}
-            pergunta={textoDoPasso(passo.pergunta, respostas) ?? ""}
-            ajuda={textoDoPasso(passo.ajuda, respostas)}
-            ids={IDS}
-          >
-            <PassoControle
-              passo={passo}
-              respostas={respostas}
-              onChange={atualizar}
-              erro={erro}
-              ids={IDS}
-              describedBy={describedBy}
-              invalid={erro !== undefined}
-            />
-          </Passo>
+          <AnimatePresence mode="wait" initial={false} custom={direcao}>
+            <m.div
+              key={passo.id}
+              custom={direcao}
+              variants={reduzido ? STEP_REDUCED : STEP}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="grid min-w-0 gap-8"
+            >
+              <Passo
+                id={passo.id}
+                pergunta={textoDoPasso(passo.pergunta, respostas) ?? ""}
+                ajuda={textoDoPasso(passo.ajuda, respostas)}
+                ids={IDS}
+              >
+                <PassoControle
+                  passo={passo}
+                  respostas={respostas}
+                  onChange={atualizar}
+                  erro={erro}
+                  ids={IDS}
+                  describedBy={describedBy}
+                  invalid={erro !== undefined}
+                />
+              </Passo>
+            </m.div>
+          </AnimatePresence>
         </div>
       </div>
 

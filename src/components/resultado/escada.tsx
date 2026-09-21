@@ -1,7 +1,8 @@
 "use client";
 
-import { Check } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { staggerStyle } from "@/components/motion/stagger";
+import { CheckDraw } from "@/components/ui/drawn-icon";
 import { ROTULO_DEGRAU, type Degrau } from "@/domain";
 import { cn } from "@/lib/utils";
 
@@ -9,6 +10,8 @@ import { cn } from "@/lib/utils";
   A cascata como stepper: o que já está resolvido, onde a pessoa está e o
   que vem depois. No celular rola na horizontal e centraliza o degrau atual;
   em telas maiores quebra linha se precisar, sem barra de rolagem.
+  Os degraus acendem um a um (step-light, 110ms por degrau) e o Check dos
+  resolvidos se desenha no mesmo compasso.
 */
 
 const DEGRAUS: Degrau[] = [0, 1, 2, 3, 4];
@@ -43,16 +46,17 @@ export function Escada({ degrau }: { degrau: Degrau }) {
             <li
               key={d}
               aria-current={situacao === "atual" ? "step" : undefined}
+              style={staggerStyle(d)}
               className={cn(
-                "flex shrink-0 snap-center items-center gap-2 rounded-full px-3 py-2 text-sm font-bold whitespace-nowrap",
-                situacao === "atual" && "bg-primary text-primary-foreground",
-                situacao === "resolvido" && "text-foreground",
+                "step-light flex shrink-0 snap-center items-center gap-2 rounded-full px-3 py-2 text-sm font-bold whitespace-nowrap",
+                situacao === "atual" && "bg-primary text-primary-foreground shadow-cta",
+                situacao === "resolvido" && "bg-accent text-foreground",
                 situacao === "depois" && "text-muted-foreground",
               )}
             >
               {situacao === "resolvido" && (
                 <>
-                  <Check className="size-4 text-primary" aria-hidden="true" />
+                  <CheckDraw className="size-4 text-primary" delay={d * 110} />
                   <span className="sr-only">Resolvido:</span>
                 </>
               )}

@@ -1,6 +1,8 @@
 "use client";
 
 import { IconeCategoria } from "@/components/categorias/icone-categoria";
+import { CountUp } from "@/components/motion/count-up";
+import { NotaLegal } from "@/components/ui/nota-legal";
 import { metaPorTipo, rotuloMeta, type Grupo, type Meta, type ProjecaoMeta } from "@/domain";
 import { formatBRL, formatMeses } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -15,6 +17,10 @@ import { cn } from "@/lib/utils";
 
   Nada aqui promete rendimento. O número de juros é o que a pessoa digitou no
   grupo, e a ressalva no fim diz isso com todas as letras.
+
+  "Entra por mês" e "Tempo até lá" contam a partir do valor anterior quando a
+  pessoa edita os grupos (o CountUp guarda o último valor por instância);
+  `formatMeses` é função de módulo, logo estável nas dependências do efeito.
 */
 
 /** "Investimento, Namoro e Emergência" — lista em pt-BR, sem vírgula antes do "e". */
@@ -60,14 +66,15 @@ export function MetaCard({ meta, projecao, degrauDeMetas, grupos, className }: M
   return (
     <section
       aria-labelledby="meta-titulo"
-      className={cn("min-w-0 rounded-2xl border border-border bg-card p-5", className)}
+      className={cn(
+        "glow-card min-w-0 rounded-2xl border bg-card p-5 transition-[border-color,box-shadow] duration-(--duration-base) ease-out-expo motion-reduce:transition-none",
+        className,
+      )}
     >
       <div className="flex min-w-0 items-center gap-3">
         <IconeCategoria icone={catalogo.icone} className="size-6 text-primary" />
         <div className="min-w-0">
-          <p className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-            Sua meta
-          </p>
+          <p className="eyebrow">Sua meta</p>
           <h2 id="meta-titulo" className="min-w-0 font-extrabold tracking-tight wrap-break-word">
             {nome}
             {!semAlvo && (
@@ -93,19 +100,15 @@ export function MetaCard({ meta, projecao, degrauDeMetas, grupos, className }: M
         <>
           <dl className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2">
             <div className="min-w-0">
-              <dt className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                Entra por mês
-              </dt>
-              <dd className="text-xl font-extrabold text-primary tnum">
-                {formatBRL(projecao.aporteMensal)}
+              <dt className="eyebrow">Entra por mês</dt>
+              <dd className="text-2xl font-extrabold text-primary tnum">
+                <CountUp value={projecao.aporteMensal} />
               </dd>
             </div>
             <div className="min-w-0">
-              <dt className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                Tempo até lá
-              </dt>
-              <dd className="text-xl font-extrabold tnum">
-                {prazo === null ? "Não fecha assim" : formatMeses(prazo)}
+              <dt className="eyebrow">Tempo até lá</dt>
+              <dd className="text-2xl font-extrabold tnum">
+                {prazo === null ? "Não fecha assim" : <CountUp value={prazo} format={formatMeses} />}
               </dd>
               {prazo !== null && projecao.mesEstimado && (
                 <dd className="text-sm text-ink-2">por volta de {projecao.mesEstimado}</dd>
@@ -141,10 +144,10 @@ export function MetaCard({ meta, projecao, degrauDeMetas, grupos, className }: M
         </>
       )}
 
-      <p className="mt-4 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
+      <NotaLegal className="mt-4">
         Estimativa feita com os números que você informou. Rendimento não é garantido e o prazo
         muda se os valores mudarem.
-      </p>
+      </NotaLegal>
     </section>
   );
 }

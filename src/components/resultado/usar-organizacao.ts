@@ -1,5 +1,13 @@
 "use client";
 
+/*
+  eslint: o hook se chama `usarOrganizacao` (domínio em pt-BR, como o resto do
+  app) e a regra rules-of-hooks só reconhece o prefixo `use`. É um hook de
+  verdade (chamado no topo de PlanoCompleto); sem React Compiler no projeto, o
+  nome não muda o comportamento. Renomear pra `useOrganizacao` é decisão do dono.
+*/
+/* eslint-disable react-hooks/rules-of-hooks */
+
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import {
   grupoSugeridoPorSlug,

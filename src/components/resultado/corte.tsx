@@ -7,6 +7,7 @@ import { ListaNumerada } from "./lista-numerada";
   Quando os custos passam da renda, o mês é de corte, não de aporte.
   Entra no lugar de "Pra onde vai o dinheiro". Se a renda fecha exatamente
   com os custos (déficit zero), a decisão já explica — o "Faltam" some.
+  O número não conta: no meio da frase, um valor mudando de largura refluiria o texto.
 */
 
 export function Corte({ corte }: { corte: PlanoDeCorte }) {
@@ -19,13 +20,13 @@ export function Corte({ corte }: { corte: PlanoDeCorte }) {
       </h2>
       {temDeficit && (
         <p className="mt-3 text-xl font-extrabold tracking-tight text-warn sm:text-2xl">
-          Faltam <span className="tnum">{formatBRL(corte.deficit)}</span> por mês pra fechar a conta
+          Faltam{" "}
+          <span className="tnum">{formatBRL(corte.deficit)}</span>{" "}
+          por mês pra fechar a conta
         </p>
       )}
       <p className={cn("text-ink-2", temDeficit ? "mt-2" : "mt-3")}>{corte.metaTexto}</p>
-      <h3 className="mt-6 text-xs font-bold tracking-wider text-muted-foreground uppercase">
-        Por onde começar
-      </h3>
+      <h3 className="eyebrow mt-6">Por onde começar</h3>
       <ListaNumerada className="mt-3" itens={corte.sugestoes} />
     </section>
   );

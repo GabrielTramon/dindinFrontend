@@ -1,10 +1,17 @@
 "use client";
 
 import { Plus, X } from "lucide-react";
+import { AnimatePresence, m } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { IconeCategoria } from "@/components/categorias/icone-categoria";
 import { ctaClasses } from "@/components/layout/cta-link";
+import { ITEM } from "@/components/motion/springs";
+import { staggerStyle } from "@/components/motion/stagger";
 import { MoneyInput } from "@/components/onboarding/money-input";
+import { CheckDraw } from "@/components/ui/drawn-icon";
+import { IconButton } from "@/components/ui/icon-button";
+import { Marcador, SegmentBar } from "@/components/ui/segment-bar";
+import { TextField } from "@/components/ui/text-field";
 import {
   ajustarProporcionalmente,
   gruposSugeridosPara,
@@ -37,6 +44,10 @@ import { cn } from "@/lib/utils";
 
   Sem localStorage: estado vem por props e sai por onChange. Quem grava é a
   página.
+
+  Movimento: a régua é uma SegmentBar (os segmentos deslizam pra nova
+  proporção ao editar); cartões e itens entram e saem com altura animada
+  (AnimatePresence + m.li layout); o aviso de excesso assenta por enter-up.
 */
 
 const ID_CRIAR = "grupos-criar";
@@ -108,6 +119,14 @@ function recadoDoRendimento(grupo: Grupo, temMeta: boolean): string {
 }
 
 const ORGANIZADO_VAZIO = { pct: 0, restante: 0 };
+
+/** os tiles de sugestão têm a mesma receita dos tiles de categoria do gastos-editor */
+const TILE =
+  "press glow-card rise-in flex min-h-14 min-w-0 items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-left text-sm font-bold outline-none hover:border-primary hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:border-transparent disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none";
+
+/** o cartão de um grupo: sombra esmeralda no hover, sem press (tem campos dentro) */
+const CARTAO =
+  "glow-card grid min-w-0 gap-3 rounded-2xl border border-border bg-card p-4 transition-[border-color,box-shadow] duration-(--duration-base) ease-out-expo motion-reduce:transition-none";
 
 export interface GruposEditorProps {
   /** o excedente do mês: a base que a pessoa reparte. Zero ou menos não renderiza nada */
@@ -277,7 +296,7 @@ export function GruposEditor({
 
       <div aria-live="polite" className="mt-4 grid min-w-0 gap-2">
         {organizacao.excedeu ? (
-          <div className="flex min-w-0 flex-wrap items-center gap-3 rounded-xl bg-warn-soft p-3">
+          <div className="enter-up flex min-w-0 flex-wrap items-center gap-3 rounded-xl bg-warn-soft p-3">
             <p className="min-w-0 flex-1 text-sm font-bold text-warn">
               Você organizou <span className="tnum">{formatBRL(organizacao.excesso)}</span> a mais
               do que sobra.
@@ -299,36 +318,49 @@ export function GruposEditor({
       </div>
 
       <ul className="mt-5 grid min-w-0 gap-4">
-        {grupos.map((grupo, i) => (
-          <li key={grupo.id} className="min-w-0">
-            <CartaoGrupo
-              grupo={grupo}
-              dados={porId.get(grupo.id) ?? ORGANIZADO_VAZIO}
-              cor={corDoGrupo(i)}
-              temMeta={temMeta}
-              rendimentoAberto={rendendo[grupo.id] ?? grupo.rendimentoMensal !== undefined}
-              aporteSugerido={aporteSugerido}
-              aporteEditado={aporteEditado}
-              descricaoDoSistema={descricaoDoSistema}
-              onValor={(v) => mudarValor(grupo, v)}
-              onNome={(nome) => trocar(grupo.id, { nome })}
-              onContaParaMeta={(contaParaMeta) => trocar(grupo.id, { contaParaMeta })}
-              onAlternarRendimento={(ligado) => alternarRendimento(grupo, ligado)}
-              onRendimento={(v) => definirRendimento(grupo, v)}
-              onRemover={() => removerGrupo(i)}
-              onAdicionarItem={() => adicionarItem(grupo)}
-              onEditarItem={(itemId, patch) => editarItem(grupo, itemId, patch)}
-              onRemoverItem={(itemId) => removerItem(grupo, itemId)}
-              onVoltarAoSugerido={() => onAporteChange?.(undefined)}
-            />
-          </li>
-        ))}
+        <AnimatePresence initial={false}>
+          {grupos.map((grupo, i) => (
+            // layout="position": só a posição anima quando um vizinho entra ou sai.
+            // Com `layout` cheio, o cartão inteiro era escalado (squash) toda vez
+            // que a própria altura mudava — ligar rendimento, detalhar, remover linha.
+            <m.li
+              key={grupo.id}
+              layout="position"
+              variants={ITEM}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="min-w-0"
+            >
+              <CartaoGrupo
+                grupo={grupo}
+                dados={porId.get(grupo.id) ?? ORGANIZADO_VAZIO}
+                cor={corDoGrupo(i)}
+                temMeta={temMeta}
+                rendimentoAberto={rendendo[grupo.id] ?? grupo.rendimentoMensal !== undefined}
+                aporteSugerido={aporteSugerido}
+                aporteEditado={aporteEditado}
+                descricaoDoSistema={descricaoDoSistema}
+                onValor={(v) => mudarValor(grupo, v)}
+                onNome={(nome) => trocar(grupo.id, { nome })}
+                onContaParaMeta={(contaParaMeta) => trocar(grupo.id, { contaParaMeta })}
+                onAlternarRendimento={(ligado) => alternarRendimento(grupo, ligado)}
+                onRendimento={(v) => definirRendimento(grupo, v)}
+                onRemover={() => removerGrupo(i)}
+                onAdicionarItem={() => adicionarItem(grupo)}
+                onEditarItem={(itemId, patch) => editarItem(grupo, itemId, patch)}
+                onRemoverItem={(itemId) => removerItem(grupo, itemId)}
+                onVoltarAoSugerido={() => onAporteChange?.(undefined)}
+              />
+            </m.li>
+          ))}
+        </AnimatePresence>
       </ul>
 
       <div className="mt-5 grid min-w-0 gap-3">
         {mostrarSugestoes ? (
           <div role="group" aria-label="Sugestões de grupo" className="grid min-w-0 gap-2">
-            <p className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+            <p className="eyebrow">
               {daPessoa.length === 0 ? "Toque pra criar seu primeiro grupo" : "Criar grupo"}
             </p>
             <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3">
@@ -342,14 +374,12 @@ export function GruposEditor({
                     onClick={() => adicionarGrupo(s)}
                     disabled={repetido || cheio}
                     aria-label={repetido ? `${s.nome} — já criado` : `Criar grupo ${s.nome}`}
-                    className={cn(
-                      "flex min-h-14 min-w-0 items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-left text-sm font-bold transition-colors outline-none",
-                      "hover:border-primary hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50",
-                      "disabled:pointer-events-none disabled:opacity-40",
-                    )}
+                    className={TILE}
+                    style={staggerStyle(Math.min(i, 8))}
                   >
                     <IconeCategoria icone={s.icone} className="text-primary" />
                     <span className="min-w-0 leading-tight">{s.nome}</span>
+                    {repetido && <CheckDraw className="ml-auto size-4" />}
                   </button>
                 );
               })}
@@ -408,23 +438,16 @@ function Regua({ organizacao }: { organizacao: Organizacao }) {
 
   return (
     <div className="mt-4 min-w-0">
-      <div
-        role="img"
-        aria-label={rotulo}
+      <SegmentBar
+        height="md"
+        label={rotulo}
         className={cn(
-          "flex h-3 overflow-hidden rounded-full bg-muted",
+          "transition-[box-shadow] duration-(--duration-base) motion-reduce:transition-none",
           organizacao.excedeu && "ring-2 ring-warn",
         )}
-      >
-        {organizacao.grupos.map((g, i) => (
-          <div
-            key={g.id}
-            className={cn("min-w-0 basis-0", corDoGrupo(i))}
-            style={{ flexGrow: g.valor }}
-          />
-        ))}
-        <div className="min-w-0 basis-0 bg-muted" style={{ flexGrow: organizacao.sobra }} />
-      </div>
+        segments={organizacao.grupos.map((g, i) => ({ value: g.valor, className: corDoGrupo(i) }))}
+        rest={{ value: organizacao.sobra, className: "bg-track" }}
+      />
 
       <p className="mt-2 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-sm text-ink-2 tnum">
         {organizacao.grupos.map((g, i) =>
@@ -437,21 +460,12 @@ function Regua({ organizacao }: { organizacao: Organizacao }) {
         )}
         {organizacao.sobra > 0 && (
           <span className="min-w-0">
-            <Marcador className="bg-muted ring-1 ring-border" /> Livre{" "}
+            <Marcador className="bg-track ring-1 ring-border" /> Livre{" "}
             {formatBRL(organizacao.sobra)}
           </span>
         )}
       </p>
     </div>
-  );
-}
-
-function Marcador({ className }: { className: string }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={cn("inline-block size-2.5 rounded-full align-middle", className)}
-    />
   );
 }
 
@@ -505,11 +519,7 @@ function CartaoGrupo({
     sistema && aporteEditado && Math.round(grupo.valor) !== Math.round(aporteSugerido);
 
   return (
-    <div
-      role="group"
-      aria-label={`Grupo ${nome}`}
-      className="grid min-w-0 gap-3 rounded-2xl border border-border bg-card p-4"
-    >
+    <div role="group" aria-label={`Grupo ${nome}`} className={CARTAO}>
       <div className="flex min-h-11 min-w-0 items-center gap-2">
         <span className={cn("size-2.5 shrink-0 rounded-full", cor)} aria-hidden="true" />
         <IconeCategoria icone={grupo.icone} className="text-primary" />
@@ -534,7 +544,7 @@ function CartaoGrupo({
               placeholder="Nome do grupo"
               value={grupo.nome}
               onChange={(e) => onNome(e.target.value)}
-              className="w-0 min-w-0 flex-1 bg-transparent font-bold outline-none placeholder:font-normal placeholder:text-ink-3"
+              className="w-0 min-w-0 flex-1 rounded-md bg-transparent font-bold outline-none placeholder:font-normal placeholder:text-ink-3 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
             />
             <button
               type="button"
@@ -570,8 +580,8 @@ function CartaoGrupo({
             {descricaoDoSistema}
           </p>
           {mudouOAporte && (
-            <div className="grid min-w-0 gap-2 rounded-xl bg-muted p-3">
-              <p className="text-sm text-ink-2">
+            <div className="rise-in grid min-w-0 gap-1 text-sm text-ink-2">
+              <p>
                 O plano sugeria <span className="tnum">{formatBRL(aporteSugerido)}</span> por mês.
                 {Math.round(grupo.valor) < Math.round(aporteSugerido)
                   ? " Guardando menos, cada degrau do plano leva mais tempo pra fechar."
@@ -580,7 +590,7 @@ function CartaoGrupo({
               <button
                 type="button"
                 onClick={onVoltarAoSugerido}
-                className={cn(ctaClasses("ghost", "md"), "justify-self-start -ml-3")}
+                className="press inline-flex min-h-11 items-center justify-self-start rounded-md text-sm font-bold text-primary underline underline-offset-4 outline-none hover:text-brand-deep focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 Voltar pro valor do plano
               </button>
@@ -589,10 +599,19 @@ function CartaoGrupo({
         </div>
       )}
 
-      {grupo.itens.length > 0 && (
-        <ul className="grid min-w-0 gap-2">
+      {/* `empty:hidden`: a lista fica montada pra última linha ainda sair animada, e some do grid quando esvazia */}
+      <ul className="grid min-w-0 gap-1 empty:hidden">
+        <AnimatePresence initial={false}>
           {grupo.itens.map((item) => (
-            <li key={item.id} className="min-w-0">
+            <m.li
+              key={item.id}
+              layout
+              variants={ITEM}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="min-w-0"
+            >
               <LinhaItem
                 item={item}
                 grupoNome={nome}
@@ -600,10 +619,10 @@ function CartaoGrupo({
                 onValor={(valor) => onEditarItem(item.id, { valor: valor ?? 0 })}
                 onRemover={() => onRemoverItem(item.id)}
               />
-            </li>
+            </m.li>
           ))}
-        </ul>
-      )}
+        </AnimatePresence>
+      </ul>
 
       {grupo.itens.length > 0 && dados.restante > 0 && (
         <p className="text-sm text-ink-2 tnum">
@@ -629,7 +648,7 @@ function CartaoGrupo({
         )}
       </div>
 
-      <fieldset className="grid min-w-0 gap-3 border-t border-border pt-3">
+      <fieldset className="grid min-w-0 gap-3 border-t pt-3">
         <legend className="sr-only">Opções do grupo {nome}</legend>
 
         <Caixinha
@@ -654,7 +673,7 @@ function CartaoGrupo({
           />
 
           {rendimentoAberto && (
-            <div className="grid min-w-0 gap-1.5 pl-8">
+            <div className="enter-up grid min-w-0 gap-1.5 pl-8">
               <CampoTaxa
                 id={idRendimento(grupo.id)}
                 valor={grupo.rendimentoMensal}
@@ -694,27 +713,19 @@ function CampoTaxa({ id, valor, onChange }: CampoTaxaProps) {
   }
 
   return (
-    <div className="grid min-w-0 gap-2 max-w-64">
-      <label htmlFor={id} className="sr-only">
-        Quanto rende ao mês
-      </label>
-      <div className="flex h-14 min-w-0 items-center gap-2 rounded-2xl border border-input bg-card px-5 transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 motion-reduce:transition-none">
-        <input
-          id={id}
-          type="text"
-          inputMode="decimal"
-          autoComplete="off"
-          value={texto}
-          placeholder="0,8"
-          onChange={(e) => digitar(e.target.value)}
-          onBlur={() => setDigitado(null)}
-          className="w-0 min-w-0 flex-1 bg-transparent text-xl font-bold text-foreground tabular-nums outline-none placeholder:text-ink-3"
-        />
-        <span aria-hidden="true" className="shrink-0 text-sm font-bold text-ink-3">
-          % ao mês
-        </span>
-      </div>
-    </div>
+    <TextField
+      id={id}
+      label="Quanto rende ao mês"
+      hideLabel
+      inputMode="decimal"
+      autoComplete="off"
+      value={texto}
+      placeholder="0,8"
+      onChange={(e) => digitar(e.target.value)}
+      onBlur={() => setDigitado(null)}
+      suffix="% ao mês"
+      className="max-w-64 tnum"
+    />
   );
 }
 
@@ -740,7 +751,7 @@ function Caixinha({ id, checked, onChange, titulo, ajuda }: CaixinhaProps) {
           checked={checked}
           aria-describedby={ajudaId}
           onChange={(e) => onChange(e.target.checked)}
-          className="size-5 shrink-0 accent-primary outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="size-5 shrink-0 accent-primary outline-none focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         />
         <span className="min-w-0 font-bold">{titulo}</span>
       </label>
@@ -764,7 +775,8 @@ function LinhaItem({ item, grupoNome, onNome, onValor, onRemover }: LinhaItemPro
   const nome = nomeVisivel(item.nome, "essa linha");
 
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-xl border border-border bg-muted/50 px-3 py-2">
+    // a linha inteira mostra o foco (os campos sm não têm caixa própria): anel com offset na cor do cartão
+    <div className="flex min-w-0 items-center gap-2 rounded-md border-t py-1 transition-[border-color,box-shadow] duration-(--duration-base) focus-within:border-ring focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-card motion-reduce:transition-none">
       <label htmlFor={idNomeItem(item.id)} className="sr-only">
         O que é, dentro de {grupoNome}
       </label>
@@ -782,20 +794,13 @@ function LinhaItem({ item, grupoNome, onNome, onValor, onRemover }: LinhaItemPro
         id={idValorItem(item.id)}
         label={`Quanto vai pra ${nome}`}
         hideLabel
-        size="md"
+        size="sm"
         value={item.valor}
         onChange={onValor}
         className="w-32 shrink-0"
       />
 
-      <button
-        type="button"
-        onClick={onRemover}
-        aria-label={`Remover ${nome}`}
-        className="flex size-11 shrink-0 items-center justify-center rounded-full text-ink-3 transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
-        <X aria-hidden="true" className="size-4" />
-      </button>
+      <IconButton label={`Remover ${nome}`} icon={X} onClick={onRemover} />
     </div>
   );
 }

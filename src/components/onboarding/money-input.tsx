@@ -44,7 +44,8 @@ interface MoneyInputProps {
   hideLabel?: boolean;
   describedBy?: string;
   invalid?: boolean;
-  size?: "lg" | "md";
+  size?: "lg" | "md" | "sm";
+  flashKey?: number;
   className?: string;
   /** aceita centavos, digitados da direita pra esquerda */
   centavos?: boolean;

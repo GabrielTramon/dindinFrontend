@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { Reveal } from "@/components/motion/reveal";
 
 /*
   Bloco de seção da home. Toda seção usa o mesmo container e o mesmo
@@ -29,10 +30,15 @@ type TituloSecaoProps = {
   children: ReactNode;
 };
 
+/* O h2 acende ao entrar na viewport (Reveal); sem JS fica visível desde o início. */
 export function TituloSecao({ id, className, children }: TituloSecaoProps) {
   return (
-    <h2 id={id} className={cn("text-3xl font-extrabold tracking-tight sm:text-4xl", className)}>
+    <Reveal
+      as="h2"
+      id={id}
+      className={cn("text-3xl font-extrabold tracking-tight sm:text-4xl", className)}
+    >
       {children}
-    </h2>
+    </Reveal>
   );
 }

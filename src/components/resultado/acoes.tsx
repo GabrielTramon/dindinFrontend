@@ -6,7 +6,8 @@ import { removeKey, STORAGE_KEYS } from "@/lib/storage";
 
 /*
   Saídas da tela: ajustar uma resposta (volta pro onboarding com o perfil
-  preservado) ou apagar tudo e começar de novo.
+  preservado) ou apagar tudo e começar de novo. As duas voltam no fluxo, então
+  a rota desliza pra trás (nav-back).
 */
 
 export function Acoes() {
@@ -18,12 +19,12 @@ export function Acoes() {
     // os grupos moram numa chave própria: sem esta linha, a organização de
     // quem "começou do zero" reapareceria em cima de um plano novo
     removeKey(STORAGE_KEYS.organizacao);
-    router.push("/plano");
+    router.push("/plano", { transitionTypes: ["nav-back"] });
   }
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
-      <CtaLink href="/plano?p=1" variant="secondary">
+      <CtaLink href="/plano?p=1" variant="secondary" transitionTypes={["nav-back"]}>
         Ajustar respostas
       </CtaLink>
       <button type="button" className={ctaClasses("ghost")} onClick={comecarDoZero}>

@@ -2,15 +2,16 @@ import { formatBRL } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /*
-  Pílulas de escolha rápida. Seleção única; o selecionado fica esmeralda.
-  `Chips` são botões com estado: atalhos que preenchem um campo (`ChipsValor`
-  formata reais). `ChipsRadio` é a mesma pílula com semântica de radio nativo,
-  pra quando a escolha é a própria resposta (tipo de dívida): setas trocam a
-  opção e o grupo é uma parada só no Tab.
+  Pílulas de escolha rápida. Seleção única; a selecionada preenche em esmeralda
+  com glow e dá um pop; hover escurece a borda; press físico (a transição é do
+  `press`). `Chips` são botões com estado: atalhos que preenchem um campo
+  (`ChipsValor` formata reais). `ChipsRadio` é a mesma pílula com semântica de
+  radio nativo, pra quando a escolha é a própria resposta (tipo de dívida):
+  setas trocam a opção e o grupo é uma parada só no Tab.
 */
 
 const PILULA =
-  "inline-flex h-11 items-center rounded-full border border-border bg-card px-4 text-sm font-bold text-ink-2 transition-colors outline-none select-none tnum hover:border-ink-3 hover:text-foreground motion-reduce:transition-none";
+  "press inline-flex h-11 items-center rounded-full border border-border bg-card px-4 text-sm font-bold text-ink-2 outline-none select-none tnum hover:border-border-strong hover:text-foreground";
 
 interface ChipOption<T> {
   value: T;
@@ -29,25 +30,20 @@ interface ChipsProps<T extends string | number> {
 export function Chips<T extends string | number>({ options, value, onChange, label, className }: ChipsProps<T>) {
   return (
     <div role="group" aria-label={label} className={cn("flex flex-wrap gap-2", className)}>
-      {options.map((o) => {
-        const selecionado = o.value === value;
-        return (
-          <button
-            key={String(o.value)}
-            type="button"
-            aria-pressed={selecionado}
-            onClick={() => onChange(o.value)}
-            className={cn(
-              PILULA,
-              "focus-visible:ring-3 focus-visible:ring-ring/50",
-              selecionado &&
-                "border-primary bg-primary text-primary-foreground hover:border-primary hover:text-primary-foreground",
-            )}
-          >
-            {o.label}
-          </button>
-        );
-      })}
+      {options.map((o) => (
+        <button
+          key={String(o.value)}
+          type="button"
+          aria-pressed={o.value === value}
+          onClick={() => onChange(o.value)}
+          className={cn(
+            PILULA,
+            "focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:shadow-cta aria-pressed:hover:border-primary aria-pressed:hover:text-primary-foreground motion-safe:aria-pressed:animate-pop",
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -91,7 +87,7 @@ export function ChipsRadio<T extends string>({
               htmlFor={id}
               className={cn(
                 PILULA,
-                "cursor-pointer peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-checked:hover:border-primary peer-checked:hover:text-primary-foreground peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50",
+                "cursor-pointer peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-checked:shadow-cta peer-checked:hover:border-primary peer-checked:hover:text-primary-foreground peer-focus-visible:ring-3 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background",
               )}
             >
               {o.label}

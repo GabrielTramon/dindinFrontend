@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
 import { IconeCategoria } from "@/components/categorias/icone-categoria";
+import { staggerStyle } from "@/components/motion/stagger";
+import { Card } from "@/components/ui/card";
 import {
   ROTULO_DIVIDA,
   type ClasseDivida,
@@ -15,8 +16,14 @@ import { BarraProgresso } from "./barra-progresso";
 
 /*
   Os números por trás da decisão: fôlego, reserva e dívidas, cada um no seu
-  card. É a única seção com cards — o resto da página é texto.
+  card. Nenhum card aqui é clicável, então eles têm a sombra esmeralda que
+  acende no hover (glow-card) mas não o `press` — encolher ao toque é gesto
+  de botão. As barras enchem de 0 até o alvo ao entrar (grow-in-w).
 */
+
+/** card de leitura: glow no hover com transição própria (sem press, nada aqui é botão) */
+const CARD_LEITURA =
+  "glow-card p-5 transition-[border-color,box-shadow] duration-(--duration-base) ease-out-expo motion-reduce:transition-none";
 
 type DetalhesProps = {
   folego: Folego;
@@ -45,7 +52,7 @@ function CardGastosFixos({ gastos }: { gastos: GastoFixoDetalhado[] }) {
   const total = gastos.reduce((acc, g) => acc + g.valor, 0);
 
   return (
-    <Card className="md:col-span-2">
+    <Card className={cn(CARD_LEITURA, "md:col-span-2")}>
       <div className="flex items-baseline justify-between gap-4">
         <h3 className="font-extrabold tracking-tight">Gastos fixos</h3>
         <p className="font-bold tnum">{formatBRL(total)}/mês</p>
@@ -64,10 +71,10 @@ function CardGastosFixos({ gastos }: { gastos: GastoFixoDetalhado[] }) {
               </p>
             </div>
             {/* a barra é decorativa: a fatia já está escrita ao lado */}
-            <div aria-hidden="true" className="ml-7 h-1.5 rounded-full bg-muted">
+            <div aria-hidden="true" className="ml-7 h-1.5 overflow-hidden rounded-full bg-track">
               <div
-                className="h-full rounded-full bg-primary/60"
-                style={{ width: `${Math.max(2, Math.round(g.fatia * 100))}%` }}
+                className="grow-in-w h-full rounded-full bg-chart-2"
+                style={{ width: `${Math.max(2, Math.round(g.fatia * 100))}%`, ...staggerStyle(i) }}
               />
             </div>
           </li>
@@ -77,19 +84,15 @@ function CardGastosFixos({ gastos }: { gastos: GastoFixoDetalhado[] }) {
   );
 }
 
-function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cn("rounded-2xl border bg-card p-5", className)}>{children}</div>;
-}
-
 function AlvoAtual({ alvo, atual }: { alvo: number; atual: number }) {
   return (
     <dl className="mt-3 flex gap-6">
       <div>
-        <dt className="text-xs font-bold tracking-wider text-muted-foreground uppercase">Alvo</dt>
+        <dt className="eyebrow">Alvo</dt>
         <dd className="font-bold tnum">{formatBRL(alvo)}</dd>
       </div>
       <div>
-        <dt className="text-xs font-bold tracking-wider text-muted-foreground uppercase">Atual</dt>
+        <dt className="eyebrow">Atual</dt>
         <dd className="font-bold tnum">{formatBRL(atual)}</dd>
       </div>
     </dl>
@@ -98,7 +101,7 @@ function AlvoAtual({ alvo, atual }: { alvo: number; atual: number }) {
 
 function CardFolego({ folego }: { folego: Folego }) {
   return (
-    <Card>
+    <Card className={CARD_LEITURA}>
       <h3 className="font-extrabold tracking-tight">Fôlego mínimo</h3>
       <AlvoAtual alvo={folego.alvo} atual={folego.atual} />
       <BarraProgresso
@@ -123,7 +126,7 @@ function situacaoReserva(reserva: Reserva): string {
 
 function CardReserva({ reserva }: { reserva: Reserva }) {
   return (
-    <Card>
+    <Card className={CARD_LEITURA}>
       <h3 className="font-extrabold tracking-tight">Reserva de emergência</h3>
       <p className="text-xs text-muted-foreground">{reserva.multiplicador} meses dos seus custos</p>
       <AlvoAtual alvo={reserva.alvo} atual={reserva.atual} />
@@ -168,9 +171,9 @@ function LinhaDivida({ divida }: { divida: DividaAvaliada }) {
 
 function CardDividas({ dividas }: { dividas: QuadroDividas }) {
   return (
-    <Card className="md:col-span-2">
+    <Card className={cn(CARD_LEITURA, "md:col-span-2")}>
       <h3 className="font-extrabold tracking-tight">Dívidas</h3>
-      <ul className="mt-2 divide-y divide-border">
+      <ul className="mt-2 divide-y">
         {dividas.avaliadas.map((d, i) => (
           <LinhaDivida key={`${d.tipo}-${i}`} divida={d} />
         ))}

@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Nunito } from "next/font/google";
+import { SpotlightTracker } from "@/components/motion/spotlight-tracker";
+import { ThemeScript } from "@/components/theme/theme-script";
 import "./globals.css";
 
 const nunito = Nunito({
@@ -33,16 +35,29 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
+// o único lugar com hex fora do globals.css: são os --background dos dois temas
+// (a barra do navegador); use-theme reescreve as duas metas na troca de tema.
 export const viewport: Viewport = {
-  themeColor: "#0d6b4c",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#faf9f4" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a100d" },
+  ],
   width: "device-width",
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="pt-BR" className={`${nunito.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col">{children}</body>
+    // suppressHydrationWarning só aqui: o ThemeScript muda className (js/dark)
+    // antes da hidratação. Sem MotionProvider no raiz — ele mora em plano/layout.
+    <html lang="pt-BR" suppressHydrationWarning className={`${nunito.variable} h-full antialiased`}>
+      <head>
+        <ThemeScript />
+      </head>
+      <body className="flex min-h-full flex-col">
+        {children}
+        <SpotlightTracker />
+      </body>
     </html>
   );
 }

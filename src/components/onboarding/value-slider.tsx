@@ -1,7 +1,8 @@
 import { Slider } from "@/components/ui/slider";
 
 /*
-  Slider de um valor só, com o polegar do tamanho de um dedo. O valor de
+  Slider de um valor só, com o polegar do tamanho de um dedo (o visual —
+  trilho bg-track, polegar 24px com glow — é do primitivo). O valor de
   verdade mora no input ao lado; aqui ele é só limitado à faixa do trilho.
 */
 
@@ -30,7 +31,7 @@ export function ValueSlider({ value, onChange, min, max, step = 1, labelledBy, f
       locale="pt-BR"
       format={format}
       aria-labelledby={labelledBy}
-      className="py-3 **:data-[slot=slider-track]:h-1.5 **:data-[slot=slider-track]:bg-border **:data-[slot=slider-thumb]:size-6 **:data-[slot=slider-thumb]:border-2 **:data-[slot=slider-thumb]:border-primary **:data-[slot=slider-thumb]:after:-inset-3"
+      className="py-3"
     />
   );
 }
