@@ -128,23 +128,40 @@ export interface RespostasSalvas {
   emAndamento: boolean;
 }
 
-/** Rascunho em andamento; sem rascunho, o perfil já salvo — é o que faz "ajustar respostas" funcionar. */
+/**
+ * Rascunho em andamento; sem rascunho, o perfil já salvo — é o que faz "ajustar
+ * respostas" funcionar.
+ *
+ * Ritmo e "Guardar" editado (`aporteEscolhido`) só mudam na tela do plano, que
+ * grava direto no perfil: com perfil salvo, eles vêm SEMPRE de lá, mesmo com
+ * rascunho. Um rascunho gravado antes dessa escolha desfaria ela em silêncio ao
+ * concluir o onboarding.
+ */
 export function lerRespostasSalvas(): RespostasSalvas {
   const rascunho = readJSON<unknown>(STORAGE_KEYS.rascunho, null);
-  if (rascunho !== null) return { respostas: sanearRespostas(rascunho), emAndamento: true };
-  return { respostas: sanearRespostas(readJSON<unknown>(STORAGE_KEYS.perfil, null)), emAndamento: false };
+  const perfilBruto = readJSON<unknown>(STORAGE_KEYS.perfil, null);
+  const perfil = perfilBruto === null ? null : sanearRespostas(perfilBruto);
+  if (rascunho === null) return { respostas: perfil ?? {}, emAndamento: false };
+  const respostas = sanearRespostas(rascunho);
+  if (perfil === null) return { respostas, emAndamento: true };
+  return {
+    respostas: { ...respostas, ritmo: perfil.ritmo, aporteEscolhido: perfil.aporteEscolhido },
+    emAndamento: true,
+  };
 }
 
 /**
  * O holerite estimado das respostas atuais, ou null quando a pessoa informou o
- * que cai na conta (PJ e informal sempre caem aqui: sem saber o anexo do Simples
- * e o Fator R, não existe conta honesta).
+ * que cai na conta ou é PJ (sem saber o anexo do Simples e o Fator R, não existe
+ * conta honesta — e INSS e IRRF de CLT não são o imposto dela). Informal não
+ * entra aqui de propósito: é quem escolheu "varia muito", e um CLT comissionado
+ * pode estar entre eles com um salário bruto de verdade.
  *
  * É o mesmo cálculo da prévia do onboarding e o que preenche `rendaMensal`, pra
  * tela e plano nunca discordarem de um centavo.
  */
 export function holeriteDasRespostas(r: Respostas): Holerite | null {
-  if (r.rendaInformada !== "bruta" || r.salarioBruto === undefined) return null;
+  if (r.rendaInformada !== "bruta" || r.salarioBruto === undefined || r.tipoRenda === "pj") return null;
   return brutoParaLiquido(r.salarioBruto, { dependentes: r.dependentes });
 }
 
@@ -152,14 +169,23 @@ export function holeriteDasRespostas(r: Respostas): Holerite | null {
  * Objeto pronto pra `validarPerfil`: moradia sem custo zera o custo de moradia,
  * o nome em branco de uma categoria livre vira ausente (o schema cobra) e,
  * quem informou o salário bruto, tem `rendaMensal` derivada do líquido.
+ *
+ * PJ que informou "salário bruto" (a pergunta 1 vem antes do tipo de renda)
+ * não tem desconto de CLT: o valor digitado é o que entra na conta, e o perfil
+ * sai como renda informada líquida. O imposto dele é o grupo "Imposto" da tela
+ * do plano — descontar INSS e IRRF aqui cobraria imposto duas vezes.
  */
 export function montarPerfil(r: Respostas): Respostas {
   const holerite = holeriteDasRespostas(r);
+  const brutoDePj = r.tipoRenda === "pj" && r.rendaInformada === "bruta" && r.salarioBruto !== undefined;
+  const renda: Respostas = brutoDePj
+    ? { rendaInformada: "liquida", rendaMensal: r.salarioBruto, salarioBruto: undefined, dependentes: undefined }
+    : { rendaMensal: holerite ? holerite.liquido : r.rendaMensal };
   return {
     ...r,
-    rendaMensal: holerite ? holerite.liquido : r.rendaMensal,
+    ...renda,
     // qual tabela gerou esse líquido: em janeiro dá pra avisar que a conta mudou
-    competenciaTabela: holerite ? TABELAS_FOLHA.competencia : r.competenciaTabela,
+    competenciaTabela: holerite ? TABELAS_FOLHA.competencia : brutoDePj ? undefined : r.competenciaTabela,
     custoMoradia: moradiaSemCusto(r.moradia) ? 0 : r.custoMoradia,
     gastosFixos: r.gastosFixos?.map((g) => ({
       ...g,

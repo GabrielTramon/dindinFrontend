@@ -10,15 +10,20 @@
 
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import {
+  ajustarProporcionalmente,
   grupoSugeridoPorSlug,
+  limitesDoDivisor,
   organizarExcedente,
+  reescalarGrupos,
   SLUG_GRUPO_SISTEMA,
   type Grupo,
+  type LimitesDoDivisor,
   type Organizacao,
   type Plano,
 } from "@/domain";
 import { arredondar } from "@/lib/format";
 import { readJSON, STORAGE_KEYS, subscribeStorage, writeJSON } from "@/lib/storage";
+import { itensPassamDe, poteComValor } from "./pote-comum";
 
 /*
   O estado da seção "como organizar o que sobra".
@@ -36,6 +41,13 @@ import { readJSON, STORAGE_KEYS, subscribeStorage, writeJSON } from "@/lib/stora
   é dado dela e precisa ser gravado à parte, senão some no primeiro redesenho:
   `montarSistema` e `paraGuardado` são os dois lados desse mesmo contrato e
   mudam sempre juntos.
+
+  Em PORCENTAGEM: os potes continuam gravados em reais, mas junto vai a
+  `baseReferencia` — a sobra do mês no momento da gravação. Na leitura, se a
+  sobra mudou (aumento de salário, conta nova), os potes são reescalados pra
+  continuar sendo a MESMA % (reescalarGrupos). Sem `baseReferencia` (dado
+  gravado antes disso) nada é reescalado: vale a base atual. A próxima gravação
+  já regrava com a base nova. Nada é reescrito durante o render.
 */
 
 export interface Guardado {
@@ -56,23 +68,34 @@ export interface Guardado {
    * some no primeiro redesenho e nunca chega na projeção da meta.
    */
   rendimentoDoSistema?: number;
+  /**
+   * a sobra do mês (excedente) quando os potes foram gravados. É o que deixa a
+   * divisão ser em %: com a sobra nova, os potes voltam na mesma proporção.
+   * Ausente = dado antigo, que vale como está sobre a base atual.
+   */
+  baseReferencia?: number;
 }
 
 const VAZIO: Guardado = { grupos: [] };
 
-function ler(): Guardado {
-  const bruto = readJSON<unknown>(STORAGE_KEYS.organizacao, null);
+const numeroPositivo = (v: unknown): number | undefined =>
+  typeof v === "number" && Number.isFinite(v) && v > 0 ? v : undefined;
+
+/** O que está no localStorage virando um Guardado; lixo vira o vazio. Puro. */
+export function interpretarGuardado(bruto: unknown): Guardado {
   if (typeof bruto !== "object" || bruto === null) return VAZIO;
   const o = bruto as Record<string, unknown>;
   return {
     grupos: Array.isArray(o.grupos) ? (o.grupos as Grupo[]) : [],
     itensDoSistema: Array.isArray(o.itensDoSistema) ? (o.itensDoSistema as Grupo["itens"]) : undefined,
     sistemaContaParaMeta: typeof o.sistemaContaParaMeta === "boolean" ? o.sistemaContaParaMeta : undefined,
-    rendimentoDoSistema:
-      typeof o.rendimentoDoSistema === "number" && Number.isFinite(o.rendimentoDoSistema) && o.rendimentoDoSistema > 0
-        ? o.rendimentoDoSistema
-        : undefined,
+    rendimentoDoSistema: numeroPositivo(o.rendimentoDoSistema),
+    baseReferencia: numeroPositivo(o.baseReferencia),
   };
+}
+
+function ler(): Guardado {
+  return interpretarGuardado(readJSON<unknown>(STORAGE_KEYS.organizacao, null));
 }
 
 /** leitura estável pro useSyncExternalStore: string, não objeto novo a cada render */
@@ -88,9 +111,13 @@ const SUGESTAO_SISTEMA = grupoSugeridoPorSlug(SLUG_GRUPO_SISTEMA);
  * `degrauDeMetas` é `plano.degrau === 4` — o dinheiro do plano só é "pra meta"
  * quando a cascata chegou lá; antes disso ele vai pro fôlego, pra dívida ou pra
  * reserva.
+ *
+ * Os itens gravados nunca passam do aporte de hoje: quando o plano guarda menos
+ * do que eles somam (ritmo trocado, respostas refeitas), a tela os mostra
+ * encolhidos na proporção. O que está gravado só muda na próxima gravação.
  */
 export function montarSistema(guardado: Guardado, aporte: number, degrauDeMetas: boolean): Grupo {
-  return {
+  const sistema: Grupo = {
     id: SLUG_GRUPO_SISTEMA,
     nome: SUGESTAO_SISTEMA?.nome ?? "Guardar",
     icone: SUGESTAO_SISTEMA?.icone ?? "PiggyBank",
@@ -104,15 +131,34 @@ export function montarSistema(guardado: Guardado, aporte: number, degrauDeMetas:
       ? { rendimentoMensal: guardado.rendimentoDoSistema }
       : {}),
   };
+  if (!itensPassamDe(sistema, aporte)) return sistema;
+  // só os itens encolhem: o valor continua sendo o aporte do plano, sem arredondar nada
+  return { ...sistema, itens: poteComValor(sistema, aporte).itens };
+}
+
+/**
+ * A lista inteira que a tela usa: o "Guardar" na frente e os potes da pessoa
+ * já reescalados pra sobra de hoje (a mesma % de quando foram gravados).
+ */
+export function montarGrupos(guardado: Guardado, aporte: number, degrauDeMetas: boolean, base: number): Grupo[] {
+  return [
+    montarSistema(guardado, aporte, degrauDeMetas),
+    ...reescalarGrupos(guardado.grupos, guardado.baseReferencia, base),
+  ];
 }
 
 /**
  * O caminho de volta: a lista que a tela devolveu vira o que vai pro
  * localStorage. O valor do "Guardar" fica de fora de propósito (ele é o aporte
  * do plano, e mora no perfil quando ela escolhe um a dedo).
+ *
+ * `base` é a sobra de hoje: vira a `baseReferencia` dos potes gravados. Sem
+ * base positiva (corte), a referência anterior fica como estava.
  */
-export function paraGuardado(anterior: Guardado, lista: Grupo[], degrauDeMetas: boolean): Guardado {
+export function paraGuardado(anterior: Guardado, lista: Grupo[], degrauDeMetas: boolean, base?: number): Guardado {
   const sistema = lista.find((g) => g.doSistema);
+  const baseReferencia =
+    base !== undefined && Number.isFinite(base) && base > 0 ? arredondar(base) : anterior.baseReferencia;
   return {
     ...anterior,
     grupos: lista.filter((g) => !g.doSistema),
@@ -125,6 +171,7 @@ export function paraGuardado(anterior: Guardado, lista: Grupo[], degrauDeMetas: 
     // rendimento digitado aqui some no redesenho seguinte e nunca entra na
     // projeção. `undefined` some do JSON — que é o que desligar a caixinha faz
     rendimentoDoSistema: sistema?.rendimentoMensal,
+    baseReferencia,
   };
 }
 
@@ -132,13 +179,19 @@ export interface UsoDaOrganizacao {
   /** a lista completa, com o grupo do sistema na frente */
   grupos: Grupo[];
   organizacao: Organizacao;
-  /** o que o plano guarda este mês, já considerando uma edição da pessoa */
+  /** o que o plano guarda este mês, já considerando uma edição da pessoa (nunca acima da sobra) */
   aporte: number;
+  /** a sobra do mês (excedente): o 100% do divisor */
+  base: number;
+  /** o que fica "Pra você" e quanto cada pote ainda pode crescer */
+  limites: LimitesDoDivisor;
   /** true quando ela mexeu no "Guardar" — o ritmo vira "personalizado" */
   aporteEditado: boolean;
   salvarGrupos: (grupos: Grupo[]) => void;
   /** grava o novo valor do "Guardar"; undefined volta pro que o plano sugere */
   escolherAporte: (valor: number | undefined) => void;
+  /** dado antigo acima da sobra: reparte a sobra na proporção dos potes ("Guardar" junto) */
+  ajustar: () => void;
   limpar: () => void;
 }
 
@@ -157,14 +210,16 @@ export function usarOrganizacao(plano: Plano): UsoDaOrganizacao {
   // o valor do "Guardar" escolhido a dedo é decisão sobre o PLANO, não sobre a
   // organização: mora no perfil, viaja com ele e já chega no motor
   const aporteEditado = plano.perfil.aporteEscolhido !== undefined;
-  const aporte = arredondar(Math.min(Math.max(0, plano.aporte), Math.max(0, base)));
+  // o motor já limita a escolha à mão à sobra (aportePorDegrau)
+  const aporte = plano.aporte;
 
   const grupos = useMemo<Grupo[]>(
-    () => [montarSistema(guardado, aporte, plano.degrau === 4), ...guardado.grupos],
-    [guardado, aporte, plano.degrau],
+    () => montarGrupos(guardado, aporte, plano.degrau === 4, base),
+    [guardado, aporte, plano.degrau, base],
   );
 
   const organizacao = useMemo(() => organizarExcedente(base, grupos), [base, grupos]);
+  const limites = useMemo(() => limitesDoDivisor(plano, grupos), [plano, grupos]);
 
   const gravar = useCallback((novo: Guardado) => {
     if (!writeJSON(STORAGE_KEYS.organizacao, novo)) setFallback(novo);
@@ -172,14 +227,15 @@ export function usarOrganizacao(plano: Plano): UsoDaOrganizacao {
 
   const salvarGrupos = useCallback(
     (lista: Grupo[]) => {
-      gravar(paraGuardado(ler(), lista, plano.degrau === 4));
+      gravar(paraGuardado(ler(), lista, plano.degrau === 4, base));
     },
-    [gravar, plano.degrau],
+    [gravar, plano.degrau, base],
   );
 
   const escolherAporte = useCallback(
     (valor: number | undefined) => {
-      const { aporteEscolhido: _antigo, ...resto } = plano.perfil;
+      const resto = { ...plano.perfil };
+      delete resto.aporteEscolhido;
       // chave ausente, nunca `undefined`: é o que mantém o perfil idêntico ao
       // de quem nunca editou (e o plano gravado sem versão nova à toa)
       writeJSON(STORAGE_KEYS.perfil, valor === undefined ? resto : { ...resto, aporteEscolhido: valor });
@@ -187,7 +243,26 @@ export function usarOrganizacao(plano: Plano): UsoDaOrganizacao {
     [plano.perfil],
   );
 
+  const ajustar = useCallback(() => {
+    const ajustados = ajustarProporcionalmente(base, grupos);
+    salvarGrupos(ajustados);
+    const sistema = ajustados.find((g) => g.doSistema);
+    // o ajuste também encolhe o "Guardar", e esse valor mora no perfil
+    if (sistema && Math.round(sistema.valor * 100) !== Math.round(aporte * 100)) escolherAporte(sistema.valor);
+  }, [grupos, base, salvarGrupos, escolherAporte, aporte]);
+
   const limpar = useCallback(() => gravar(VAZIO), [gravar]);
 
-  return { grupos, organizacao, aporte, aporteEditado, salvarGrupos, escolherAporte, limpar };
+  return {
+    grupos,
+    organizacao,
+    aporte,
+    base,
+    limites,
+    aporteEditado,
+    salvarGrupos,
+    escolherAporte,
+    ajustar,
+    limpar,
+  };
 }

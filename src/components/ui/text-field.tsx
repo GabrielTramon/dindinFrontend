@@ -24,9 +24,10 @@ export function TextField({ id, label, hideLabel, size = "md", suffix, className
       </label>
       <div
         className={cn(
-          "flex min-w-0 items-center gap-2 transition-[border-color,box-shadow] duration-(--duration-base) ease-out-expo motion-reduce:transition-none",
+          // aria-invalid no input pinta a caixa de aviso, como no NumberInput
+          "flex min-w-0 items-center gap-2 transition-[border-color,box-shadow] duration-(--duration-base) ease-out-expo has-aria-invalid:border-warn motion-reduce:transition-none",
           size === "md"
-            ? "h-14 rounded-2xl border border-input bg-card px-5 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background"
+            ? "h-14 rounded-2xl border border-input bg-card px-5 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background has-aria-invalid:focus-within:ring-warn"
             : "h-11 border-b border-input px-0 focus-within:border-ring",
         )}
       >

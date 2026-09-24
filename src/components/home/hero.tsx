@@ -1,4 +1,4 @@
-import { CtaLink } from "@/components/layout/cta-link";
+import { CtaLink, ctaClasses } from "@/components/layout/cta-link";
 import { ExemploPlano } from "@/components/home/exemplo-plano";
 import { Secao } from "@/components/home/secao";
 import { Palavras } from "@/components/motion/palavras";
@@ -43,12 +43,14 @@ export function Hero() {
             <CtaLink href="/plano" size="lg" transitionTypes={["nav-forward"]}>
               Montar meu plano
             </CtaLink>
-            <CtaLink href="#como-funciona" variant="ghost" size="lg">
+            {/* âncora da mesma página: <a> nativo, não next/link. O Link ignora o
+                clique quando o hash já está na URL, e a página não rola de novo. */}
+            <a href="#como-funciona" className={ctaClasses("ghost", "lg")}>
               Como funciona
-            </CtaLink>
+            </a>
           </div>
           <p className="rise-in mt-4 text-sm text-muted-foreground" style={staggerStyle(4)}>
-            Sem cadastro. Seus dados ficam só no seu navegador.
+            Sem cadastro. Seu plano fica só no seu navegador.
           </p>
         </div>
 

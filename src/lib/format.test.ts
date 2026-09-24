@@ -4,10 +4,13 @@ import {
   formatBRL,
   formatMeses,
   formatPct,
+  lerReaisColados,
+  lerReaisInteiros,
   mascaraCentavosBRL,
   mascaraInteiroBRL,
   mascaraTaxa,
   parseBRL,
+  rascunhoReaisInteiros,
   taxaDoTexto,
   textoDaTaxa,
 } from "./format";
@@ -128,5 +131,69 @@ describe("o que já existia continua igual", () => {
   it("arredondar não erra em valor com centavo quebrado", () => {
     expect(arredondar(19.99)).toBe(19.99);
     expect(arredondar(4973.390000000001)).toBe(4973.39);
+  });
+});
+
+/*
+  A regressão por trás destes: a máscara dos campos de dinheiro apagava tudo que
+  não era dígito, então a vírgula sumia e os centavos entravam como reais —
+  "2.500,50" virava R$ 250.050 e passava na validação. No campo de centavos era
+  o contrário: colar "3500" dava R$ 35,00.
+*/
+describe("lerReaisColados", () => {
+  it("lê os formatos que chegam colando", () => {
+    expect(lerReaisColados("2.500,50")).toBe(2500.5);
+    expect(lerReaisColados("2500,5")).toBe(2500.5);
+    expect(lerReaisColados("R$ 2.500,00")).toBe(2500);
+    expect(lerReaisColados("2,500.00")).toBe(2500);
+    expect(lerReaisColados("3247.8")).toBe(3247.8);
+    expect(lerReaisColados("3500")).toBe(3500);
+    expect(lerReaisColados("1.234.567,89")).toBe(1234567.89);
+  });
+
+  it("separador seguido de 3 dígitos é milhar, em qualquer convenção", () => {
+    expect(lerReaisColados("2.500")).toBe(2500);
+    expect(lerReaisColados("2,500")).toBe(2500);
+    expect(lerReaisColados("1,234,567")).toBe(1234567);
+  });
+
+  it("sem dígito é vazio", () => {
+    expect(lerReaisColados("")).toBeUndefined();
+    expect(lerReaisColados("R$")).toBeUndefined();
+    expect(lerReaisColados(",")).toBeUndefined();
+    expect(lerReaisColados(",5")).toBe(0.5);
+  });
+});
+
+describe("lerReaisInteiros (digitando no campo sem centavos)", () => {
+  it("dígitos com a máscara de milhar continuam como sempre", () => {
+    expect(lerReaisInteiros("2")).toBe(2);
+    expect(lerReaisInteiros("2.500")).toBe(2500);
+    expect(lerReaisInteiros("1.2345")).toBe(12345);
+    expect(lerReaisInteiros("")).toBeUndefined();
+  });
+
+  it("vírgula digitada: os centavos arredondam, nunca viram reais", () => {
+    expect(lerReaisInteiros("2.500,")).toBe(2500);
+    expect(lerReaisInteiros("2.500,4")).toBe(2500);
+    expect(lerReaisInteiros("2.500,5")).toBe(2501);
+    expect(lerReaisInteiros("2.500,50")).toBe(2501);
+    // o terceiro dígito depois da vírgula é ignorado
+    expect(lerReaisInteiros("2.500,499")).toBe(2500);
+  });
+
+  it("limita a parte inteira", () => {
+    expect(lerReaisInteiros("1234567890", 9)).toBe(123456789);
+  });
+
+  it("o rascunho na tela é lido igual ao texto digitado", () => {
+    for (const texto of ["2.500,", "2500,5", "2.500,50", "2.500,507", ",5", "1.2345,1"]) {
+      const rascunho = rascunhoReaisInteiros(texto);
+      expect(rascunho).not.toBeNull();
+      expect(lerReaisInteiros(rascunho ?? "")).toBe(lerReaisInteiros(texto));
+    }
+    expect(rascunhoReaisInteiros("2500,5")).toBe("2.500,5");
+    expect(rascunhoReaisInteiros("2.500,507")).toBe("2.500,50");
+    expect(rascunhoReaisInteiros("2.500")).toBeNull();
   });
 });

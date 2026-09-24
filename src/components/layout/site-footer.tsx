@@ -15,8 +15,9 @@ export function SiteFooter() {
 
         <p className="max-w-md text-xs leading-relaxed text-muted-foreground">
           Conteúdo educacional sobre organização financeira. O dindin não recomenda produtos,
-          bancos, corretoras ou investimentos específicos e não substitui um profissional. Seus
-          dados ficam só no seu navegador.
+          bancos, corretoras ou investimentos específicos e não substitui um profissional. Seu
+          plano fica só no seu navegador. A conta, se você criar, guarda só o seu e-mail e a senha
+          protegida (nunca em texto).
         </p>
 
         <p className="text-xs text-muted-foreground tnum">© {ano} dindin</p>

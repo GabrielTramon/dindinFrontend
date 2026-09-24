@@ -1,12 +1,12 @@
 import { useState, type ReactNode } from "react";
-import { brutoParaLiquido, TABELAS_FOLHA, type RendaInformada } from "@/domain";
+import { TABELAS_FOLHA, type RendaInformada } from "@/domain";
 import { CountUp } from "@/components/motion/count-up";
 import { formatBRL } from "@/lib/format";
 import { ChipsValor } from "./chips";
 import { MoneyInput } from "./money-input";
 import { NumberInput } from "./number-input";
 import type { ControleIds } from "./passo-controle";
-import type { Respostas } from "./respostas";
+import { holeriteDasRespostas, type Respostas } from "./respostas";
 import { ValueSlider } from "./value-slider";
 
 /*
@@ -48,18 +48,17 @@ export function RendaControle({ respostas, onChange, ids, describedBy, invalid, 
   const [flash, setFlash] = useState(0);
   const informada: RendaInformada = respostas.rendaInformada ?? "liquida";
   const ehBruto = informada === "bruta";
-  const holerite =
-    ehBruto && respostas.salarioBruto !== undefined
-      ? brutoParaLiquido(respostas.salarioBruto, { dependentes: respostas.dependentes })
-      : null;
+  // PJ (quem volta aqui depois da pergunta 2) não tem desconto de CLT: o bruto é o que entra na conta
+  const pj = respostas.tipoRenda === "pj";
+  const holerite = holeriteDasRespostas(respostas);
 
-  /** no modo bruto, rendaMensal acompanha o líquido calculado */
+  /** no modo bruto, rendaMensal acompanha o líquido calculado (a mesma conta de montarPerfil) */
   const mudarBruto = (salarioBruto: number | undefined, dependentes = respostas.dependentes) => {
-    const novo = salarioBruto === undefined ? null : brutoParaLiquido(salarioBruto, { dependentes });
+    const novo = holeriteDasRespostas({ ...respostas, rendaInformada: "bruta", salarioBruto, dependentes });
     onChange({
       salarioBruto,
       dependentes,
-      rendaMensal: novo?.liquido,
+      rendaMensal: novo ? novo.liquido : pj ? salarioBruto : undefined,
       competenciaTabela: novo ? TABELAS_FOLHA.competencia : undefined,
     });
   };
@@ -69,17 +68,19 @@ export function RendaControle({ respostas, onChange, ids, describedBy, invalid, 
     if (valor === "bruta") {
       onChange({ rendaInformada: "bruta", salarioBruto: undefined, rendaMensal: undefined });
     } else {
-      // volta pro líquido já mostrado: a pessoa confere com o holerite e corrige
+      // volta pro líquido já mostrado: a pessoa confere com o holerite e corrige. O campo do
+      // líquido é de reais inteiros: guardar os centavos faria o plano usar um número e a tela mostrar outro.
       onChange({
         rendaInformada: "liquida",
-        rendaMensal: holerite?.liquido ?? respostas.rendaMensal,
+        rendaMensal: holerite ? Math.round(holerite.liquido) : respostas.rendaMensal,
         salarioBruto: undefined,
         competenciaTabela: undefined,
       });
     }
   };
 
-  const abaixoDoMinimo = ehBruto && respostas.salarioBruto !== undefined && respostas.salarioBruto < TABELAS_FOLHA.salarioMinimo;
+  const abaixoDoMinimo =
+    holerite !== null && respostas.salarioBruto !== undefined && respostas.salarioBruto < TABELAS_FOLHA.salarioMinimo;
 
   return (
     <div className="grid min-w-0 gap-5">
@@ -127,7 +128,12 @@ export function RendaControle({ respostas, onChange, ids, describedBy, invalid, 
         {erro}
       </div>
 
-      {ehBruto ? (
+      {ehBruto && pj ? (
+        <p className="enter-up rounded-2xl bg-accent p-4 text-sm text-ink-2">
+          Como PJ, não tem desconto de INSS e IRRF na folha: o plano usa esse valor como o que entra na sua conta. Na
+          tela do plano, o grupo Imposto ajuda a separar o que vai pro imposto.
+        </p>
+      ) : ehBruto ? (
         <>
           <div className="enter-up grid gap-2 rounded-2xl bg-accent p-4">
             <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-2">
@@ -156,31 +162,30 @@ export function RendaControle({ respostas, onChange, ids, describedBy, invalid, 
             )}
             <button
               type="button"
-              onClick={() => trocarModo("liquida")}
+              onClick={() => {
+                trocarModo("liquida");
+                // o botão some junto com o bloco do bruto; o foco vai pro campo, que passa a pedir o líquido
+                document.getElementById(ids.controle)?.focus();
+              }}
               className="press inline-flex min-h-11 items-center justify-self-start rounded-md text-sm font-bold text-primary underline underline-offset-4 outline-none hover:text-brand-deep focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               Não bateu? Digitar o líquido
             </button>
           </div>
 
-          <div className="grid min-w-0 gap-2">
-            <label htmlFor="renda-dependentes" className="eyebrow">
-              Dependentes no imposto de renda
-            </label>
-            <NumberInput
-              id="renda-dependentes"
-              label="Dependentes no imposto de renda"
-              hideLabel
-              value={respostas.dependentes ?? 0}
-              onChange={(dependentes) => mudarBruto(respostas.salarioBruto, dependentes ?? 0)}
-              parse={(t) => {
-                const digitos = t.replace(/\D/g, "").slice(0, 2);
-                return digitos === "" ? 0 : Math.min(10, Number(digitos));
-              }}
-              format={String}
-              className="max-w-32"
-            />
-          </div>
+          {/* o rótulo visível é o do próprio campo: um segundo <label for> faria o leitor de tela ler o nome duas vezes */}
+          <NumberInput
+            id="renda-dependentes"
+            label="Dependentes no imposto de renda"
+            value={respostas.dependentes ?? 0}
+            onChange={(dependentes) => mudarBruto(respostas.salarioBruto, dependentes ?? 0)}
+            parse={(t) => {
+              const digitos = t.replace(/\D/g, "").slice(0, 2);
+              return digitos === "" ? 0 : Math.min(10, Number(digitos));
+            }}
+            format={String}
+            campoClassName="max-w-32"
+          />
         </>
       ) : (
         <>

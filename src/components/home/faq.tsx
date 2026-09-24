@@ -16,7 +16,7 @@ const PERGUNTAS = [
   {
     pergunta: "Preciso criar conta?",
     resposta:
-      "Não. Nada de e-mail, senha ou cartão. O resultado aparece na hora e fica salvo no seu navegador.",
+      "Não. O plano inteiro funciona sem conta: o resultado aparece na hora e fica salvo no seu navegador. A conta é opcional e grátis, com e-mail e senha, e só serve pra baixar o PDF do plano.",
   },
   {
     pergunta: "Vocês dizem onde investir?",
@@ -26,7 +26,7 @@ const PERGUNTAS = [
   {
     pergunta: "Meus dados vão pra onde?",
     resposta:
-      "Pra lugar nenhum. As respostas ficam no seu navegador. Se limpar o histórico, elas somem — e você refaz em 2 minutos.",
+      "Suas respostas e seu plano ficam só no seu navegador. Se limpar o histórico, eles somem — e você refaz em 2 minutos. Se criar a conta, a gente guarda só o seu e-mail (e a senha protegida, nunca em texto), e dá pra excluir quando quiser.",
   },
 ];
 

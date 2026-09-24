@@ -93,7 +93,7 @@ describe("storage", () => {
     expect(aviso).not.toHaveBeenCalled();
   });
 
-  it("as três chaves são distintas e versionadas", () => {
+  it("as chaves são distintas e versionadas", () => {
     const chaves = Object.values(STORAGE_KEYS);
     expect(new Set(chaves).size).toBe(chaves.length);
     for (const chave of chaves) expect(chave).toMatch(/^dindin:[a-z]+:v\d+$/);

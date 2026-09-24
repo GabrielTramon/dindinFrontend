@@ -21,7 +21,7 @@ export default function ResultadoPage() {
     <>
       <SiteHeader variant="minimal" />
       <PageTransition>
-        <main className="flex-1 py-8 sm:py-12">
+        <main className="flex-1 py-6 sm:py-10 lg:py-12">
           <Resultado />
         </main>
         <SiteFooter />

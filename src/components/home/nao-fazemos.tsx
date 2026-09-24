@@ -9,8 +9,8 @@ import { XDraw } from "@/components/ui/drawn-icon";
 
 const ITENS = [
   {
-    titulo: "Não pede cadastro.",
-    texto: "Você vê o plano antes de qualquer conta. Seus dados ficam no seu navegador.",
+    titulo: "Não exige cadastro.",
+    texto: "O plano inteiro funciona sem conta e fica no seu navegador. A conta é opcional (e-mail e senha), só pra baixar o PDF, e guarda só o e-mail — a senha fica protegida, nunca em texto.",
   },
   {
     titulo: "Não indica banco, corretora ou produto.",

@@ -17,6 +17,20 @@ export const STORAGE_KEYS = {
   organizacao: "dindin:organizacao:v1",
   /** preferência de tema: "light" | "dark" (chave ausente = segue o sistema) */
   tema: "dindin:tema:v1",
+  /**
+   * sessão da conta: { accessToken, expiresAt, email }. Só serve pra liberar o
+   * PDF — o plano continua no navegador, com ou sem conta. Ler SEMPRE por
+   * `lerSessao()` (@/lib/sessao), que valida a forma e o vencimento.
+   */
+  sessao: "dindin:sessao:v1",
+  /**
+   * pra onde voltar depois de entrar (criar conta, entrar, confirmar o e-mail
+   * ou redefinir a senha): { caminho, motivo?, email? }. Só
+   * caminho interno ("/…", sem "//" nem "\\") — gravar e ler por
+   * `guardarRetorno`/`lerRetorno` (@/lib/sessao), nunca direto: é o que barra
+   * open redirect.
+   */
+  retorno: "dindin:retorno:v1",
 } as const;
 
 function disponivel(): boolean {

@@ -56,6 +56,10 @@ interface ChipsRadioProps<T extends string> {
   onChange: (v: T) => void;
   /** nome do grupo pro leitor de tela */
   label: string;
+  /** o erro do passo aponta pra esta escolha (ex.: "escolha o tipo da dívida") */
+  invalid?: boolean;
+  /** id da mensagem de erro que descreve o grupo */
+  describedBy?: string;
   className?: string;
 }
 
@@ -65,11 +69,19 @@ export function ChipsRadio<T extends string>({
   value,
   onChange,
   label,
+  invalid,
+  describedBy,
   className,
 }: ChipsRadioProps<T>) {
+  // radiogroup e não fieldset: é o papel que aceita aria-invalid, e o leitor de tela lê um grupo só
   return (
-    <fieldset className={cn("flex flex-wrap gap-2", className)}>
-      <legend className="sr-only">{label}</legend>
+    <div
+      role="radiogroup"
+      aria-label={label}
+      aria-invalid={invalid || undefined}
+      aria-describedby={describedBy}
+      className={cn("flex flex-wrap gap-2", className)}
+    >
       {options.map((o) => {
         const id = `${name}-${o.value}`;
         return (
@@ -95,7 +107,7 @@ export function ChipsRadio<T extends string>({
           </div>
         );
       })}
-    </fieldset>
+    </div>
   );
 }
 

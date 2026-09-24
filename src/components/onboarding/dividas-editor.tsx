@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { ChipsRadio } from "./chips";
 import { MoneyInput } from "./money-input";
 import { OptionCards } from "./option-cards";
+import type { ErroNaLinha } from "./passos";
 import type { DividaRascunho } from "./respostas";
 
 /*
@@ -28,6 +29,8 @@ const OPCOES_TIPO = TIPOS_DIVIDA.map((t) => ({ value: t, label: ROTULO_DIVIDA[t]
 
 const AJUDA_ROTATIVO = "Rotativo é quando você paga só o mínimo da fatura e o resto vira juros.";
 
+const AJUDA_PARCELA = "Se essa parcela já entrou nos gastos ou no valor da moradia, deixe em branco.";
+
 const ID_ADICIONAR = "dividas-adicionar";
 
 function idDoTitulo(numero: number): string {
@@ -40,9 +43,13 @@ interface DividasEditorProps {
   /** a pergunta, como legenda do grupo "devo / não devo" */
   legend: string;
   describedBy?: string;
+  /** id da linha de erro do passo: o campo com erro aponta pra ela */
+  idErro?: string;
+  /** a dívida e o campo que a linha de erro cita */
+  erroEm?: ErroNaLinha;
 }
 
-export function DividasEditor({ dividas, onChange, legend, describedBy }: DividasEditorProps) {
+export function DividasEditor({ dividas, onChange, legend, describedBy, idErro, erroEm }: DividasEditorProps) {
   const escolha: Escolha | undefined =
     dividas === undefined ? undefined : dividas.length === 0 ? "nao" : "sim";
   const lista = dividas ?? [];
@@ -50,6 +57,10 @@ export function DividasEditor({ dividas, onChange, legend, describedBy }: Divida
   // Adicionar e remover mudam a lista embaixo do foco: quem clicou "Remover" perderia
   // o lugar (o botão some com o item). O id aqui recebe o foco no render seguinte.
   const focoPendente = useRef<string | null>(null);
+
+  // "Não devo nada" apaga a lista do rascunho; um toque sem querer não pode perder o que foi
+  // digitado. A lista fica guardada enquanto a pergunta está aberta e volta com "Tenho dívida".
+  const guardadas = useRef<DividaRascunho[]>([]);
 
   useEffect(() => {
     const id = focoPendente.current;
@@ -59,8 +70,13 @@ export function DividasEditor({ dividas, onChange, legend, describedBy }: Divida
   }, [lista.length]);
 
   function escolher(v: Escolha) {
-    if (v === "nao") onChange([]);
-    else onChange(lista.length > 0 ? lista : [{}]);
+    if (v === "nao") {
+      if (lista.length > 0) guardadas.current = lista;
+      onChange([]);
+      return;
+    }
+    if (lista.length > 0) onChange(lista);
+    else onChange(guardadas.current.length > 0 ? guardadas.current : [{}]);
   }
 
   function editar(indice: number, patch: Partial<DividaRascunho>) {
@@ -99,6 +115,8 @@ export function DividasEditor({ dividas, onChange, legend, describedBy }: Divida
                   numero={i + 1}
                   divida={divida}
                   podeRemover={lista.length > 1}
+                  invalido={erroEm?.indice === i ? erroEm.campo : undefined}
+                  idErro={idErro}
                   onEdit={(patch) => editar(i, patch)}
                   onRemove={() => remover(i)}
                 />
@@ -126,13 +144,20 @@ interface DividaItemProps {
   numero: number;
   divida: DividaRascunho;
   podeRemover: boolean;
+  /** o campo desta dívida que a linha de erro cita ("tipo", "saldo" ou "parcela") */
+  invalido?: string;
+  idErro?: string;
   onEdit: (patch: Partial<DividaRascunho>) => void;
   onRemove: () => void;
 }
 
-function DividaItem({ numero, divida, podeRemover, onEdit, onRemove }: DividaItemProps) {
+function DividaItem({ numero, divida, podeRemover, invalido, idErro, onEdit, onRemove }: DividaItemProps) {
   const prefixo = `divida-${numero}`;
   const tituloId = idDoTitulo(numero);
+  const idAjudaParcela = `${prefixo}-parcela-ajuda`;
+  const tipoInvalido = invalido === "tipo";
+  /** a linha de erro descreve só o campo que ela cita */
+  const erroDe = (campo: string) => (invalido === campo ? idErro : undefined);
 
   return (
     <div role="group" aria-labelledby={tituloId} className="grid gap-4">
@@ -153,13 +178,19 @@ function DividaItem({ numero, divida, podeRemover, onEdit, onRemove }: DividaIte
       </div>
 
       <div className="grid gap-2">
-        <p className="eyebrow">Tipo</p>
+        {/* o rótulo visível é só pra quem vê: o grupo já se chama "Tipo da dívida N" e seria lido duas vezes */}
+        <p aria-hidden="true" className={cn("eyebrow", tipoInvalido && "text-warn")}>
+          Tipo
+        </p>
+        {/* o erro "escolha o tipo" aponta pro próprio grupo de chips */}
         <ChipsRadio
           name={`${prefixo}-tipo`}
           options={OPCOES_TIPO}
           value={divida.tipo}
           onChange={(tipo) => onEdit({ tipo })}
           label={`Tipo da dívida ${numero}`}
+          invalid={tipoInvalido}
+          describedBy={erroDe("tipo")}
         />
         {divida.tipo === "rotativo" && (
           <p className="text-sm text-muted-foreground">{AJUDA_ROTATIVO}</p>
@@ -172,15 +203,25 @@ function DividaItem({ numero, divida, podeRemover, onEdit, onRemove }: DividaIte
         size="md"
         value={divida.saldo}
         onChange={(saldo) => onEdit({ saldo })}
+        describedBy={erroDe("saldo")}
+        invalid={invalido === "saldo"}
       />
 
-      <MoneyInput
-        id={`${prefixo}-parcela`}
-        label="Parcela por mês, se tiver"
-        size="md"
-        value={divida.parcela}
-        onChange={(parcela) => onEdit({ parcela })}
-      />
+      <div className="grid gap-2">
+        <MoneyInput
+          id={`${prefixo}-parcela`}
+          label="Parcela por mês, se tiver"
+          size="md"
+          value={divida.parcela}
+          onChange={(parcela) => onEdit({ parcela })}
+          describedBy={[idAjudaParcela, erroDe("parcela")].filter(Boolean).join(" ")}
+          invalid={invalido === "parcela"}
+        />
+        {/* a mesma parcela nos gastos (ex.: financiamento do carro) ou na moradia sairia duas vezes da conta */}
+        <p id={idAjudaParcela} className="text-sm text-muted-foreground">
+          {AJUDA_PARCELA}
+        </p>
+      </div>
     </div>
   );
 }

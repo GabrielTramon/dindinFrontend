@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Moradia, TipoRenda } from "@/domain";
+import { TABELAS_FOLHA, type Moradia, type TipoRenda } from "@/domain";
 import { cn } from "@/lib/utils";
 import { ChipsValor } from "./chips";
 import { DividasEditor } from "./dividas-editor";
@@ -8,9 +8,9 @@ import { MetaEditor } from "./meta-editor";
 import { MoneyInput } from "./money-input";
 import { NumberInput } from "./number-input";
 import { OptionCards } from "./option-cards";
-import { textoDoPasso, type Passo } from "./passos";
+import { erroNaLinha, textoDoPasso, type Passo } from "./passos";
 import { RendaControle } from "./renda-controle";
-import { moradiaSemCusto, type Respostas } from "./respostas";
+import { holeriteDasRespostas, moradiaSemCusto, type Respostas } from "./respostas";
 import { ValueSlider } from "./value-slider";
 
 /*
@@ -38,6 +38,22 @@ function lerIdade(texto: string): number | undefined {
   return digitos === "" ? undefined : Number(digitos);
 }
 
+/**
+ * A pergunta 1 vem antes do tipo de renda: quem informou o bruto teve o líquido
+ * calculado com a tabela de CLT. Trocar o tipo refaz essa conta — PJ não tem
+ * desconto de folha, então o bruto dele é o que entra na conta (a mesma regra
+ * de holeriteDasRespostas e montarPerfil); voltar pra CLT recalcula o líquido.
+ */
+function rendaParaTipo(tipoRenda: TipoRenda, r: Respostas): Partial<Respostas> {
+  if (r.rendaInformada !== "bruta" || r.salarioBruto === undefined) return { tipoRenda };
+  const holerite = holeriteDasRespostas({ ...r, tipoRenda });
+  return {
+    tipoRenda,
+    rendaMensal: holerite ? holerite.liquido : r.salarioBruto,
+    competenciaTabela: holerite ? TABELAS_FOLHA.competencia : undefined,
+  };
+}
+
 /** Moradia sem custo zera o valor; ao sair de uma sem custo, a pergunta volta em branco. */
 function custoMoradiaPara(nova: Moradia, r: Respostas): number | undefined {
   if (moradiaSemCusto(nova)) return 0;
@@ -62,6 +78,10 @@ interface PassoControleProps {
 
 export function PassoControle({ passo, respostas, onChange, erro, ids, describedBy, invalid }: PassoControleProps) {
   const pergunta = textoDoPasso(passo.pergunta, respostas) ?? "";
+  // qual campo o erro aponta (a linha do gasto, o nome da meta…), pra ele e só ele receber aria-invalid
+  const caminho = erro !== undefined ? passo.campoDoErro?.(respostas) : undefined;
+  // sem erro e com o Continuar travado: o que falta preencher (uma linha pela metade)
+  const falta = erro === undefined && !passo.valido(respostas) ? passo.falta?.(respostas) : undefined;
 
   switch (passo.id) {
     case "rendaMensal":
@@ -85,8 +105,10 @@ export function PassoControle({ passo, respostas, onChange, erro, ids, described
             onChange={(meta) => onChange({ meta })}
             legend={pergunta}
             idValor={ids.controle}
+            idErro={ids.erro}
             describedBy={describedBy}
-            invalid={invalid}
+            // erro sem caminho (ex.: não deu pra salvar no fim) não é culpa de campo nenhum
+            erroEm={caminho?.[0] === "nome" ? "nome" : caminho?.[0] === "valorAlvo" ? "valorAlvo" : undefined}
           />
           <LinhaErro id={ids.erro} erro={erro} />
         </>
@@ -100,10 +122,19 @@ export function PassoControle({ passo, respostas, onChange, erro, ids, described
             legend={pergunta}
             options={OPCOES_RENDA}
             value={respostas.tipoRenda}
-            onChange={(tipoRenda) => onChange({ tipoRenda })}
+            onChange={(tipoRenda) => onChange(rendaParaTipo(tipoRenda, respostas))}
             describedBy={describedBy}
           />
           <LinhaErro id={ids.erro} erro={erro} />
+          {/* região live sempre no DOM: o aviso aparece ao escolher PJ e precisa ser anunciado */}
+          <div aria-live="polite">
+            {respostas.tipoRenda === "pj" && respostas.rendaInformada === "bruta" && (
+              <p className="enter-up rounded-2xl bg-accent p-4 text-sm text-ink-2">
+                Como PJ, não tem desconto de INSS e IRRF na folha: o plano usa o valor da primeira pergunta como o que
+                entra na sua conta. Na tela do plano, o grupo Imposto ajuda a separar o que vai pro imposto.
+              </p>
+            )}
+          </div>
         </>
       );
 
@@ -131,8 +162,9 @@ export function PassoControle({ passo, respostas, onChange, erro, ids, described
           <ValueSlider
             value={respostas.idade}
             onChange={(idade) => onChange({ idade })}
+            // o mesmo teto do schema (perfilSchema.idade): menor, o slider trocaria uma idade válida pelo teto
             min={14}
-            max={70}
+            max={100}
             labelledBy={ids.titulo}
           />
         </div>
@@ -177,8 +209,10 @@ export function PassoControle({ passo, respostas, onChange, erro, ids, described
             onChange={(gastosFixos) => onChange({ gastosFixos })}
             legend={pergunta}
             describedBy={describedBy}
+            idErro={ids.erro}
+            erroEm={erroNaLinha(caminho)}
           />
-          <LinhaErro id={ids.erro} erro={erro} />
+          <LinhaErro id={ids.erro} erro={erro} falta={falta} />
         </>
       );
 
@@ -190,8 +224,10 @@ export function PassoControle({ passo, respostas, onChange, erro, ids, described
             onChange={(dividas) => onChange({ dividas })}
             legend={pergunta}
             describedBy={describedBy}
+            idErro={ids.erro}
+            erroEm={erroNaLinha(caminho)}
           />
-          <LinhaErro id={ids.erro} erro={erro} />
+          <LinhaErro id={ids.erro} erro={erro} falta={falta} />
         </>
       );
 
@@ -258,13 +294,21 @@ function CampoValor({ pergunta, valores, value, onChange, erro, ids, describedBy
  * A linha de erro do passo. Vazia, fica sr-only mas no DOM: é a região live que
  * anuncia o erro quando ele aparece. O texto remonta (key) e sobe suave a cada
  * mensagem nova; a região em si nunca sai do DOM.
+ *
+ * `falta` usa a mesma linha, em tom neutro: não é erro, é o motivo do Continuar
+ * estar travado (uma linha de gasto ou de dívida pela metade).
  */
-function LinhaErro({ id, erro }: { id: string; erro?: string }) {
+function LinhaErro({ id, erro, falta }: { id: string; erro?: string; falta?: string }) {
+  const texto = erro ?? falta;
   return (
-    <p id={id} aria-live="polite" className={cn("text-sm font-bold text-warn", !erro && "sr-only")}>
-      {erro && (
-        <span key={erro} className="rise-in block">
-          {erro}
+    <p
+      id={id}
+      aria-live="polite"
+      className={cn("text-sm", erro ? "font-bold text-warn" : "text-ink-2", !texto && "sr-only")}
+    >
+      {texto && (
+        <span key={texto} className="rise-in block">
+          {texto}
         </span>
       )}
     </p>

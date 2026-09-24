@@ -1,25 +1,25 @@
 "use client";
 
-import { useMemo, useSyncExternalStore, type ReactNode } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { staggerStyle } from "@/components/motion/stagger";
-import { gerarPlano, projetarMeta, validarPerfil, type Perfil, type Ritmo } from "@/domain";
-import { readJSON, STORAGE_KEYS, subscribeStorage, writeJSON } from "@/lib/storage";
-import { Acoes } from "./acoes";
-import { Aviso } from "./aviso";
-import { Cabecalho } from "./cabecalho";
-import { Corte } from "./corte";
-import { Decisao } from "./decisao";
-import { Destino } from "./destino";
-import { Detalhes } from "./detalhes";
-import { Escada } from "./escada";
+import {
+  caminhoDoPlano,
+  gerarPlano,
+  respostaDoPlano,
+  validarPerfil,
+  type Perfil,
+} from "@/domain";
+import type { DadosDoPlanoPdf } from "@/lib/pdf";
+import { readJSON, STORAGE_KEYS, subscribeStorage } from "@/lib/storage";
+import { BarraFinal } from "./barra-final";
+import { Caminho } from "./caminho";
+import { DetalhesPlano } from "./detalhes-plano";
+import { Divisor } from "./divisor";
 import { EstadoVazio } from "./estado-vazio";
-import { GruposEditor } from "./grupos-editor";
-import { MetaCard } from "./meta-card";
-import { Numeros } from "./numeros";
-import { ProximosPassos } from "./proximos-passos";
-import { RitmoSeletor } from "./ritmo-seletor";
+import { Resposta, RespostaDeCorte } from "./resposta";
 import { Skeleton } from "./skeleton";
 import { usarOrganizacao } from "./usar-organizacao";
+import { usarEscolhaDeRitmo } from "./usar-ritmo";
 
 /*
   Compõe a tela do plano. O perfil só existe no navegador, então a leitura
@@ -59,127 +59,101 @@ function usePerfilSalvo(): Leitura {
   }, [serializado]);
 }
 
+/*
+  Uma coluna no celular (max-w-xl). Em lg, duas: à esquerda a resposta e o
+  caminho, presos no topo enquanto a direita (divisor, detalhes, saídas) rola.
+*/
 export function Resultado() {
   const { carregando, perfil } = usePerfilSalvo();
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">
+    <div className="mx-auto w-full max-w-xl px-4 sm:px-6 lg:max-w-5xl">
       {carregando ? <Skeleton /> : perfil ? <PlanoCompleto perfil={perfil} /> : <EstadoVazio />}
     </div>
   );
 }
 
-/** a cascata de entrada para na 7ª seção: a página não fica esperando o rodapé */
-const MAX_STAGGER = 6;
+const COLUNAS =
+  "space-y-10 sm:space-y-16 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:items-start lg:gap-14 lg:space-y-0";
+const ESQUERDA = "space-y-10 lg:sticky lg:top-24";
+const DIREITA = "space-y-10 sm:space-y-14";
 
 function PlanoCompleto({ perfil }: { perfil: Perfil }) {
-  // o aporte escolhido a dedo já faz parte do perfil, então um gerarPlano só
+  // "hoje" congela na montagem: o mês do cartão e o dos marcos saem da mesma data
+  const [hoje] = useState(() => new Date());
+  /*
+    A escolha manual do "Guardar" já faz parte do perfil, e o motor a limita ao
+    teto do piso: um valor gravado antes do teto existir (ex.: 1.323 com teto
+    1.173) já sai do plano no teto, então o cartão do topo e o divisor leem o
+    mesmo aporte.
+  */
   const plano = useMemo(() => gerarPlano(perfil), [perfil]);
-  const organizacao = usarOrganizacao(plano);
-  /** o que o ritmo sugeriria, pra tela avisar a consequência de ter mudado */
-  const aporteDoRitmo = Math.min(plano.piso.sugerido, plano.piso.teto);
+  const uso = usarOrganizacao(plano);
+  const ritmo = usarEscolhaDeRitmo(perfil, plano, uso);
+  const { grupos } = uso;
 
   /*
-    O ritmo mora no perfil: gravar é o que faz a página inteira recalcular
-    (storage.ts avisa esta aba desde que ganhou emissor próprio). Escolher um
-    ritmo também descarta um "Guardar" editado à mão — senão a pessoa tocaria
-    no cartão e nada mudaria, porque o valor manual continuaria mandando.
+    Os marcos e a projeção da meta que eles usaram — a ÚNICA projeção da meta
+    da tela: o caminho, "Sua meta" (detalhes) e, no degrau 4, o cartão leem a
+    mesma. O que o plano guarda só vira meta no degrau de metas; e se o próprio
+    "Guardar" já conta na meta, ele já está na soma dos potes (ver
+    `projetarMetaDoPlano`).
   */
-  function escolherRitmo(ritmo: Ritmo) {
-    // escolher um ritmo descarta um "Guardar" editado a dedo: senão a pessoa
-    // tocaria no cartão e nada mudaria, porque o valor manual continuaria mandando
-    const resto = { ...perfil };
-    delete resto.aporteEscolhido; // chave ausente, nunca `undefined`: igual ao perfil de quem nunca editou
-    writeJSON(STORAGE_KEYS.perfil, { ...resto, ritmo });
-  }
+  const caminho = useMemo(
+    () => caminhoDoPlano(plano, { meta: perfil.meta, grupos, hoje }),
+    [plano, perfil.meta, grupos, hoje],
+  );
+  const { marcos } = caminho;
+  // o cartão só fala da meta no degrau 4
+  const projecaoMeta = plano.degrau === 4 ? (caminho.meta?.projecao ?? null) : null;
 
-  const projecao =
-    perfil.meta &&
-    projetarMeta(
-      perfil.meta,
-      organizacao.grupos,
-      // o que o plano guarda só vira meta no degrau de metas; e se a pessoa
-      // marcou o próprio "Guardar" como parte da meta, ele já está na soma
-      plano.degrau === 4 && !organizacao.grupos.some((g) => g.doSistema && g.contaParaMeta)
-        ? plano.aporte
-        : 0,
-      new Date(),
-    );
+  const resposta = useMemo(
+    () =>
+      respostaDoPlano(plano, {
+        meta: perfil.meta,
+        projecaoMeta,
+        simulacoes: ritmo.simulacoes,
+        grupos,
+        hoje,
+      }),
+    [plano, perfil.meta, projecaoMeta, ritmo.simulacoes, grupos, hoje],
+  );
 
-  /*
-    Cada seção entra por `enter-up` (@starting-style) com cascata de 60ms —
-    é o que faz o plano "se montar" quando o esqueleto sai. RitmoSeletor e
-    GruposEditor devolvem null em modo corte (excedente ≤ 0, que é exatamente
-    `plano.modoCorte`); ficar fora da lista evita um envelope vazio ocupando
-    o espaço do space-y.
-  */
-  const secoes: ReactNode[] = [
-    <Cabecalho key="cabecalho" degrau={plano.degrau} />,
-    <Decisao key="decisao" decisao={plano.decisao} modoCorte={plano.modoCorte} />,
-    <Escada key="escada" degrau={plano.degrau} />,
-    <Numeros key="numeros" resumo={plano.resumo} />,
-    plano.corte ? (
-      <Corte key="corte" corte={plano.corte} />
-    ) : (
-      <Destino
-        key="destino"
-        aporte={plano.aporte}
-        livre={plano.livre}
-        alocacoes={plano.alocacoes}
-      />
-    ),
-    <Detalhes
-      key="detalhes"
-      folego={plano.folego}
-      reserva={plano.reserva}
-      dividas={plano.dividas}
-      gastosFixos={plano.gastosFixos}
-    />,
-    <ProximosPassos key="passos" passos={plano.proximosPassos} />,
-    plano.modoCorte ? null : (
-      <RitmoSeletor
-        key="ritmo"
-        perfil={perfil}
-        ritmo={plano.ritmo}
-        onChange={escolherRitmo}
-        personalizado={organizacao.aporteEditado}
-      />
-    ),
-    plano.modoCorte ? null : (
-      <GruposEditor
-        key="grupos"
-        base={plano.resumo.excedente}
-        organizacao={organizacao.organizacao}
-        grupos={organizacao.grupos}
-        onChange={organizacao.salvarGrupos}
-        onAporteChange={organizacao.escolherAporte}
-        aporteSugerido={aporteDoRitmo}
-        aporteEditado={organizacao.aporteEditado}
-        tipoRenda={perfil.tipoRenda}
-        temMeta={perfil.meta !== undefined}
-        descricaoDoSistema={plano.alocacoes.map((a) => a.titulo).join(" · ")}
-      />
-    ),
-    perfil.meta && projecao ? (
-      <MetaCard
-        key="meta"
-        meta={perfil.meta}
-        projecao={projecao}
-        degrauDeMetas={plano.degrau === 4}
-        grupos={organizacao.grupos}
-      />
-    ) : null,
-    <Acoes key="acoes" />,
-    <Aviso key="aviso" />,
-  ].filter(Boolean);
+  const entradaPdf = useMemo<DadosDoPlanoPdf>(
+    () => ({ perfil, plano, grupos, organizacao: uso.organizacao, hoje }),
+    [perfil, plano, grupos, uso.organizacao, hoje],
+  );
 
   return (
-    <div className="space-y-10 sm:space-y-14">
-      {secoes.map((secao, i) => (
-        <div key={i} className="enter-up" style={staggerStyle(Math.min(i, MAX_STAGGER))}>
-          {secao}
+    <div className={COLUNAS}>
+      <div className={ESQUERDA}>
+        <div className="enter-up" style={staggerStyle(0)}>
+          {resposta.modo === "plano" ? (
+            <Resposta resposta={resposta} onEscolherRitmo={ritmo.escolher} />
+          ) : (
+            <RespostaDeCorte resposta={resposta} />
+          )}
         </div>
-      ))}
+        {marcos.length >= 2 && (
+          <div className="enter-up" style={staggerStyle(1)}>
+            <Caminho marcos={marcos} />
+          </div>
+        )}
+      </div>
+
+      <div className={DIREITA}>
+        <div className="enter-up" style={staggerStyle(2)}>
+          {resposta.modo === "plano" ? (
+            <Divisor plano={plano} perfil={perfil} uso={uso} ritmo={ritmo} />
+          ) : (
+            <p className="text-sm text-ink-2">{resposta.semDivisor}</p>
+          )}
+        </div>
+        <div className="enter-up space-y-10 sm:space-y-12" style={staggerStyle(3)}>
+          <DetalhesPlano plano={plano} resposta={resposta} grupos={grupos} metaNoCaminho={caminho.meta} />
+          <BarraFinal entradaPdf={entradaPdf} />
+        </div>
+      </div>
     </div>
   );
 }

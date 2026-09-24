@@ -4,8 +4,8 @@ import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { STEP, STEP_REDUCED } from "@/components/motion/springs";
-import { validarPerfil } from "@/domain";
-import { removeKey, STORAGE_KEYS, writeJSON } from "@/lib/storage";
+import { reescalarAporteEscolhido, validarPerfil, type Perfil } from "@/domain";
+import { readJSON, removeKey, STORAGE_KEYS, writeJSON } from "@/lib/storage";
 import { Navegacao } from "./navegacao";
 import { OnboardingSkeleton } from "./onboarding-skeleton";
 import { Passo } from "./passo";
@@ -25,7 +25,8 @@ import { lerRespostasSalvas, montarPerfil, type Respostas } from "./respostas";
 /*
   O wizard. O passo atual vem da URL (?p=N, 1-based, posição fixa entre as 8),
   então o botão voltar do navegador funciona. As respostas ficam em estado e
-  vão pro localStorage a cada mudança; no fim, viram o perfil validado.
+  vão pro localStorage a cada mudança da pessoa (abrir e só olhar não grava);
+  no fim, viram o perfil validado.
 
   A troca de passo não é view transition (?p=N é a mesma rota): é o
   AnimatePresence do motion, com direção (frente: sai pra esquerda, entra da
@@ -43,6 +44,12 @@ function urlDoPasso(indice: number): string {
   return `/plano?p=${indice + 1}`;
 }
 
+/** O perfil que já estava gravado antes de concluir; null se não há ou é inválido. */
+function perfilGravado(): Perfil | null {
+  const r = validarPerfil(readJSON<unknown>(STORAGE_KEYS.perfil, null));
+  return r.ok ? r.perfil : null;
+}
+
 interface ErroFinal {
   passo: PassoId;
   mensagem: string;
@@ -56,6 +63,8 @@ export function Onboarding() {
   const [respostas, setRespostas] = useState<Respostas>({});
   const [pronto, setPronto] = useState(false);
   const [emAndamento, setEmAndamento] = useState(false);
+  /** a pessoa já mudou alguma resposta nesta visita; antes disso não há rascunho a gravar */
+  const [editou, setEditou] = useState(false);
   const [erroFinal, setErroFinal] = useState<ErroFinal | null>(null);
 
   useEffect(() => {
@@ -67,9 +76,11 @@ export function Onboarding() {
     setPronto(true);
   }, []);
 
+  // Só depois da primeira edição: gravar na montagem copiaria o perfil pra um rascunho que
+  // envelhece — a tela do plano muda o perfil (ritmo, "Guardar") e o rascunho desfaria isso.
   useEffect(() => {
-    if (pronto) writeJSON(STORAGE_KEYS.rascunho, respostas);
-  }, [pronto, respostas]);
+    if (pronto && editou) writeJSON(STORAGE_KEYS.rascunho, respostas);
+  }, [pronto, editou, respostas]);
 
   // Sem ?p e com rascunho em andamento, retoma de onde parou: passoPermitido volta pro primeiro passo sem resposta.
   const pedido =
@@ -99,13 +110,17 @@ export function Onboarding() {
 
   function atualizar(patch: Partial<Respostas>) {
     setErroFinal(null);
+    setEditou(true);
     setRespostas((atual) => ({ ...atual, ...patch }));
   }
 
   function concluir() {
     const resultado = validarPerfil(montarPerfil(respostas));
     if (resultado.ok) {
-      const salvo = writeJSON(STORAGE_KEYS.perfil, resultado.perfil);
+      // o "Guardar" escolhido à mão é uma % da sobra: se a sobra mudou, os
+      // reais mudam junto (60% continua 60%)
+      const perfil = reescalarAporteEscolhido(perfilGravado(), resultado.perfil);
+      const salvo = writeJSON(STORAGE_KEYS.perfil, perfil);
       if (!salvo) {
         setErroFinal({
           passo: passo.id,

@@ -19,7 +19,7 @@ cp .env.example .env.local
 yarn dev
 ```
 
-App em `http://localhost:3000`. A API (dindinBackend) roda em `http://localhost:3333`.
+App em `http://localhost:3700`. A API (dindinBackend) roda em `http://localhost:3701`.
 
 ## Scripts
 

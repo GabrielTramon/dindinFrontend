@@ -18,6 +18,7 @@ import {
 } from "@/domain";
 import { cn } from "@/lib/utils";
 import { MoneyInput } from "./money-input";
+import type { ErroNaLinha } from "./passos";
 import type { GastoRascunho } from "./respostas";
 
 /*
@@ -64,10 +65,16 @@ interface GastosEditorProps {
   /** a pergunta, como nome do grupo de escolha */
   legend: string;
   describedBy?: string;
+  /** id da linha de erro do passo: o campo com erro aponta pra ela */
+  idErro?: string;
+  /** a linha e o campo que a linha de erro cita */
+  erroEm?: ErroNaLinha;
 }
 
-export function GastosEditor({ gastos, onChange, legend, describedBy }: GastosEditorProps) {
+export function GastosEditor({ gastos, onChange, legend, describedBy, idErro, erroEm }: GastosEditorProps) {
   const lista = gastos ?? [];
+  // [] é resposta ("não tenho"); undefined é "ainda não respondi" — só a primeira marca o botão
+  const nenhum = gastos !== undefined && gastos.length === 0;
   const cheio = lista.length >= MAX_GASTOS_FIXOS;
   // "outro" pode repetir (cada um tem nome próprio); as do catálogo, não
   const usados = new Set(lista.map((g) => g.categoria).filter((c) => c !== SLUG_OUTRO));
@@ -109,10 +116,12 @@ export function GastosEditor({ gastos, onChange, legend, describedBy }: GastosEd
   }
 
   return (
-    <div className="grid gap-6">
+    // min-w-0 em cada nível: a trilha auto do grid cresceria até o min-content da linha (nome
+    // nowrap, valor, X) e a página inteira rolaria de lado no celular
+    <div className="grid min-w-0 gap-6">
       {lista.length > 0 && (
-        <div className="grid gap-3">
-          <ul className="grid gap-2">
+        <div className="grid min-w-0 gap-3">
+          <ul className="grid min-w-0 gap-2">
             <AnimatePresence initial={false}>
               {lista.map((gasto, i) => (
                 <m.li
@@ -122,10 +131,13 @@ export function GastosEditor({ gastos, onChange, legend, describedBy }: GastosEd
                   initial="initial"
                   animate="animate"
                   exit="exit"
+                  className="min-w-0"
                 >
                   <GastoItem
                     id={idDe(gasto)}
                     gasto={gasto}
+                    invalido={erroEm?.indice === i ? erroEm.campo : undefined}
+                    idErro={idErro}
                     onEdit={(patch) => editar(i, patch)}
                     onRemove={() => remover(i)}
                   />
@@ -185,7 +197,16 @@ export function GastosEditor({ gastos, onChange, legend, describedBy }: GastosEd
           </button>
 
           {lista.length === 0 && (
-            <button type="button" onClick={() => onChange([])} className={cn(ctaClasses("ghost", "md"))}>
+            <button
+              type="button"
+              aria-pressed={nenhum}
+              onClick={() => onChange([])}
+              className={cn(
+                ctaClasses("ghost", "md"),
+                "border border-transparent aria-pressed:border-primary aria-pressed:bg-accent aria-pressed:text-foreground aria-pressed:hover:bg-accent",
+              )}
+            >
+              {nenhum && <CheckDraw className="text-primary" />}
               Não tenho nenhum
             </button>
           )}
@@ -205,18 +226,26 @@ interface GastoItemProps {
   /** a identidade da linha (idDe), base dos ids dos campos */
   id: string;
   gasto: GastoRascunho;
+  /** o campo desta linha que a linha de erro cita ("valor" ou "nome") */
+  invalido?: string;
+  idErro?: string;
   onEdit: (patch: Partial<GastoRascunho>) => void;
   onRemove: () => void;
 }
 
-/** Uma linha de gasto. Sem `press` (tem input dentro): transiciona só borda e sombra, e acende ao focar. */
-function GastoItem({ id, gasto, onEdit, onRemove }: GastoItemProps) {
+/**
+ * Uma linha de gasto. Sem `press` (tem input dentro): transiciona só borda e sombra, e acende ao focar.
+ * O campo com erro fica aria-invalid e descrito pela linha de erro; a borda da linha fica em aviso.
+ */
+function GastoItem({ id, gasto, invalido, idErro, onEdit, onRemove }: GastoItemProps) {
   const categoria = categoriaPorSlug(gasto.categoria);
   const livre = gasto.categoria === SLUG_OUTRO;
   const nome = livre ? gasto.nome?.trim() || "esse gasto" : (categoria?.nome ?? "Gasto");
+  const nomeInvalido = livre && invalido === "nome";
+  const valorInvalido = invalido === "valor";
 
   return (
-    <div className="glow-card flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-1 transition-[border-color,box-shadow] duration-(--duration-base) ease-out-expo focus-within:border-ring focus-within:shadow-glow motion-reduce:transition-none">
+    <div className="glow-card flex min-w-0 items-center gap-3 rounded-xl border border-border bg-card px-3 py-1 transition-[border-color,box-shadow] duration-(--duration-base) ease-out-expo focus-within:border-ring focus-within:shadow-glow has-aria-invalid:border-warn motion-reduce:transition-none">
       <IconeCategoria icone={categoria?.icone ?? ICONE_PADRAO} className="text-primary" />
 
       {livre ? (
@@ -231,7 +260,10 @@ function GastoItem({ id, gasto, onEdit, onRemove }: GastoItemProps) {
             placeholder="Nome do gasto"
             value={gasto.nome ?? ""}
             onChange={(e) => onEdit({ nome: e.target.value })}
-            className="h-11 min-w-0 flex-1 bg-transparent font-bold text-foreground outline-none placeholder:font-normal placeholder:text-ink-3"
+            aria-invalid={nomeInvalido || undefined}
+            aria-describedby={nomeInvalido ? idErro : undefined}
+            // w-0: sem largura definida vale a do input (uns 20 caracteres), que não encolhe e estoura a linha
+            className="h-11 w-0 min-w-0 flex-1 bg-transparent font-bold text-foreground outline-none placeholder:font-normal placeholder:text-ink-3"
           />
         </>
       ) : (
@@ -247,7 +279,10 @@ function GastoItem({ id, gasto, onEdit, onRemove }: GastoItemProps) {
         size="sm"
         value={gasto.valor}
         onChange={(valor) => onEdit({ valor })}
-        className="w-36 shrink-0"
+        describedBy={valorInvalido ? idErro : undefined}
+        invalid={valorInvalido}
+        // mais estreito no celular: ícone + nome + valor + X precisam caber em 320px
+        className="w-28 shrink-0 sm:w-36"
       />
 
       <IconButton label={`Remover ${nome}`} icon={X} onClick={onRemove} />

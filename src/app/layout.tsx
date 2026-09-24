@@ -10,7 +10,7 @@ const nunito = Nunito({
   display: "swap",
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3700";
 
 // ISR diário pra todas as rotas: as páginas são estáticas e o rodapé calcula o
 // ano no render — sem isso o "© ano" fica congelado no build até o próximo deploy.
@@ -50,7 +50,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     // suppressHydrationWarning só aqui: o ThemeScript muda className (js/dark)
     // antes da hidratação. Sem MotionProvider no raiz — ele mora em plano/layout.
-    <html lang="pt-BR" suppressHydrationWarning className={`${nunito.variable} h-full antialiased`}>
+    // data-scroll-behavior: o smooth do globals.css vale só pras âncoras; o Next
+    // desliga durante a troca de rota, e a página nova abre direto no topo.
+    <html
+      lang="pt-BR"
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+      className={`${nunito.variable} h-full antialiased`}
+    >
       <head>
         <ThemeScript />
       </head>
