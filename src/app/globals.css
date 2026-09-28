@@ -2,43 +2,64 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+/*
+  Tema escuro por classe no <html> (posta pelo script inline de components/theme
+  antes da primeira pintura). :where mantém especificidade zero e cobre o
+  próprio <html>, então `dark:` funciona em qualquer nó.
+*/
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  Tokens de marca do dindin.
+  Esmeralda do logo como primária, papel quente como fundo no claro; verde-quase-
+  preto com luz esmeralda no escuro. Todo brilho, vidro, malha e sombra nasce
+  aqui — nunca cor literal no JSX.
+*/
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-track: var(--track);
+  --color-bar-gap: var(--bar-gap);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* extras de marca */
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-block: var(--brand-block);
+  --color-brand-block-foreground: var(--brand-block-foreground);
+  --color-brand-block-muted: var(--brand-block-muted);
+  --color-brand-block-cta: var(--brand-block-cta);
+  --color-brand-block-cta-foreground: var(--brand-block-cta-foreground);
+  --color-glass-border: var(--glass-border);
+
+  --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -46,85 +67,871 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* sombras: só estas seis existem no app (shadow-card, shadow-cta, …) */
+  --shadow-card: var(--elev-card);
+  --shadow-card-hover: var(--elev-card-hover);
+  --shadow-cta: var(--elev-cta);
+  --shadow-cta-hover: var(--elev-cta-hover);
+  --shadow-glass: var(--elev-glass);
+  --shadow-glow: var(--elev-glow);
+
+  /* easings (ease-out-expo, ease-out-quint, ease-in-quart, ease-spring) */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-quart: cubic-bezier(0.5, 0, 0.75, 0);
+  --ease-spring: linear(
+    0, 0.006, 0.025 2.8%, 0.101 6.1%, 0.539 18.9%, 0.721 25.3%, 0.849 31.5%,
+    0.937 38.1%, 0.968 41.8%, 0.991 45.7%, 1.006 50.1%, 1.015 55%, 1.017 63.9%, 1.001
+  );
+
+  /* animações prontas (animate-pop, animate-field-flash) — as de entrada são @utility abaixo */
+  --animate-pop: pop 320ms var(--ease-out-quint);
+  --animate-field-flash: field-flash 420ms var(--ease-out-quint) both;
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  color-scheme: light;
+
+  --background: #faf9f4;
+  --foreground: #15211b;
+  --card: #ffffff;
+  --card-foreground: #15211b;
+  --popover: #ffffff;
+  --popover-foreground: #15211b;
+  --primary: #0d6b4c;
+  --primary-foreground: #ffffff;
+  --brand-deep: #0a5a3f;
+  --secondary: #eef0ea;
+  --secondary-foreground: #15211b;
+  --muted: #f1f1eb;
+  --muted-foreground: #5e6b64;
+  --accent: #e4efe9;
+  --accent-foreground: #0d6b4c;
+  --border: #d8d4c3;
+  --border-strong: #bfbaa6;
+  --input: #7c8b83;
+  --ring: #0d6b4c;
+  --track: #e6e4d8;
+  --bar-gap: #ffffff;
+  --ink-2: #4a5a51;
+  --ink-3: #66746b;
+  --warn: #a34328;
+  --warn-soft: #f4e7e1;
+  --destructive: var(--warn);
+  --chart-1: #0d6b4c;
+  --chart-2: #1f7d6b;
+  --chart-3: #4d896c;
+  --chart-4: #837e6a;
+  --chart-5: #a34328;
+  --brand-block: #0d6b4c;
+  --brand-block-foreground: #ffffff;
+  --brand-block-muted: #cfe6db;
+  --brand-block-cta: #ffffff;
+  --brand-block-cta-foreground: #0d6b4c;
+  --radius: 0.875rem;
+
+  /* luz: tudo derivado da primária/foreground, uma fonte só */
+  --glow: var(--primary);
+  --glow-soft: color-mix(in oklch, var(--primary) 18%, transparent);
+  --glow-strong: color-mix(in oklch, var(--primary) 34%, transparent);
+  --shade-4: color-mix(in oklch, var(--foreground) 4%, transparent);
+  --shade-6: color-mix(in oklch, var(--foreground) 6%, transparent);
+  --shade-16: color-mix(in oklch, var(--foreground) 16%, transparent);
+  --glass: color-mix(in oklch, var(--background) 74%, transparent);
+  --glass-border: color-mix(in oklch, var(--foreground) 9%, transparent);
+  --mesh-1: color-mix(in oklch, var(--primary) 10%, transparent);
+  --mesh-2: color-mix(in oklch, var(--chart-3) 16%, transparent);
+  --mesh-3: color-mix(in oklch, var(--accent) 70%, transparent);
+  --spot: color-mix(in oklch, var(--primary) 9%, transparent);
+  --shimmer: color-mix(in oklch, var(--foreground) 9%, transparent);
+  --grain-opacity: 0.035;
+
+  --elev-card: 0 1px 2px var(--shade-4), 0 8px 24px -12px color-mix(in oklch, var(--primary) 16%, transparent);
+  --elev-card-hover: 0 2px 4px var(--shade-6), 0 16px 40px -16px color-mix(in oklch, var(--primary) 28%, transparent);
+  --elev-cta: 0 1px 2px color-mix(in oklch, var(--brand-deep) 30%, transparent), 0 8px 20px -8px color-mix(in oklch, var(--primary) 50%, transparent);
+  --elev-cta-hover: 0 2px 4px color-mix(in oklch, var(--brand-deep) 30%, transparent), 0 14px 32px -10px color-mix(in oklch, var(--primary) 55%, transparent);
+  --elev-glass: 0 1px 0 var(--shade-4), 0 8px 24px -16px color-mix(in oklch, var(--primary) 20%, transparent);
+  --elev-glow: 0 0 12px color-mix(in oklch, var(--primary) 35%, transparent);
+
+  /* movimento */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-enter: 360ms;
+  --duration-exit: 160ms;
+  --duration-slow: 640ms;
+  --duration-theme: 520ms;
+  --stagger: 60ms;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  color-scheme: dark;
+
+  --background: #0a100d;
+  --foreground: #e9ebe4;
+  --card: #172019;
+  --card-foreground: #e9ebe4;
+  --popover: #1f2a23;
+  --popover-foreground: #e9ebe4;
+  --primary: #4ec08e;
+  --primary-foreground: #04231a;
+  --brand-deep: #6fd3a6;
+  --secondary: #222d26;
+  --secondary-foreground: #e9ebe4;
+  --muted: #131b16;
+  --muted-foreground: #98a69e;
+  --accent: #163025;
+  --accent-foreground: #4ec08e;
+  --border: #303c35;
+  --border-strong: #41504a;
+  --input: #6a766e;
+  --ring: #5fd0a0;
+  --track: #26312b;
+  --bar-gap: #0a100d;
+  --ink-2: #bcc6bf;
+  --ink-3: #8a978f;
+  --warn: #e28a6e;
+  --warn-soft: #35211a;
+  --chart-1: #4ec08e;
+  --chart-2: #2f9d76;
+  --chart-3: #8ecfae;
+  --chart-4: #8e9b91;
+  --chart-5: #e28a6e;
+  --brand-block: #0f3d2b;
+  --brand-block-foreground: #e9ebe4;
+  --brand-block-muted: #a9d5c1;
+  --brand-block-cta: #4ec08e;
+  --brand-block-cta-foreground: #04231a;
+
+  --glow-soft: color-mix(in oklch, var(--primary) 28%, transparent);
+  --glow-strong: color-mix(in oklch, var(--primary) 48%, transparent);
+  --glass: color-mix(in oklch, var(--background) 66%, transparent);
+  --glass-border: color-mix(in oklch, var(--foreground) 10%, transparent);
+  --mesh-1: color-mix(in oklch, var(--primary) 14%, transparent);
+  --mesh-2: color-mix(in oklch, var(--brand-block) 60%, transparent);
+  --mesh-3: color-mix(in oklch, var(--accent) 55%, transparent);
+  --spot: color-mix(in oklch, var(--primary) 13%, transparent);
+  --shimmer: color-mix(in oklch, var(--foreground) 10%, transparent);
+  --grain-opacity: 0.06;
+
+  /* no escuro a sombra é preta + fio interno claro; o halo esmeralda entra no hover */
+  --elev-card: inset 0 1px 0 color-mix(in oklch, var(--foreground) 4%, transparent), 0 10px 30px -14px rgb(0 0 0 / 0.7);
+  --elev-card-hover: inset 0 1px 0 color-mix(in oklch, var(--foreground) 6%, transparent), 0 18px 44px -16px rgb(0 0 0 / 0.75), 0 0 24px -8px color-mix(in oklch, var(--primary) 35%, transparent);
+  --elev-cta: 0 0 0 1px color-mix(in oklch, var(--primary) 25%, transparent), 0 8px 24px -8px color-mix(in oklch, var(--primary) 45%, transparent);
+  --elev-cta-hover: 0 0 0 1px color-mix(in oklch, var(--brand-deep) 40%, transparent), 0 14px 36px -10px color-mix(in oklch, var(--primary) 60%, transparent);
+  --elev-glass: 0 1px 0 color-mix(in oklch, var(--foreground) 3%, transparent), 0 8px 24px -16px rgb(0 0 0 / 0.6);
+  --elev-glow: 0 0 14px color-mix(in oklch, var(--primary) 55%, transparent);
+}
+
+/* ângulo da borda animada: sem @property o conic-gradient não interpola */
+@property --border-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes rise {
+  from { opacity: 0; translate: 0 14px; }
+  to { opacity: 1; translate: 0 0; }
+}
+/* mesmo desenho, outro nome: a rede de segurança do reveal precisa REINICIAR a animação */
+@keyframes rise-late {
+  from { opacity: 0; translate: 0 14px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes rise-blur {
+  from { opacity: 0; translate: 0 18px; filter: blur(8px); }
+  to { opacity: 1; translate: 0 0; filter: blur(0); }
+}
+@keyframes rise-word {
+  from { translate: 0 110%; opacity: 0; }
+  to { translate: 0 0; opacity: 1; }
+}
+@keyframes mesh-drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(-3%, 2%, 0) scale(1.06); }
+}
+@keyframes shimmer {
+  from { translate: -100% 0; }
+  to { translate: 100% 0; }
+}
+@keyframes field-flash {
+  0% { box-shadow: 0 0 0 0 var(--glow-strong); border-color: var(--primary); }
+  100% { box-shadow: 0 0 0 12px transparent; }
+}
+@keyframes step-light {
+  from { opacity: 0.35; translate: 0 6px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes border-spin {
+  to { --border-angle: 360deg; }
+}
+@keyframes bar-shine {
+  from { translate: -100% 0; }
+  to { translate: 300% 0; }
+}
+@keyframes draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes grow-x {
+  from { scale: 0 1; }
+  to { scale: 1 1; }
+}
+@keyframes grow-y {
+  from { scale: 1 0; }
+  to { scale: 1 1; }
+}
+@keyframes pop {
+  0% { scale: 0.96; }
+  60% { scale: 1.03; }
+  100% { scale: 1; }
+}
+@keyframes theme-reveal {
+  from { clip-path: circle(0 at var(--vt-x, 50%) var(--vt-y, 0)); }
+  to { clip-path: circle(var(--vt-r, 150vmax) at var(--vt-x, 50%) var(--vt-y, 0)); }
+}
+@keyframes vt-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes vt-slide {
+  from { translate: var(--vt-dx) 0; }
+  to { translate: 0 0; }
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring;
+  }
+  html {
+    @apply font-sans;
+    -webkit-font-smoothing: antialiased;
+    text-size-adjust: 100%;
+    /* a barra fixa do rodapé do wizard tem ~6rem e o header sticky 4rem */
+    scroll-padding-bottom: 6rem;
+    scroll-padding-top: 5rem;
+    @media (prefers-reduced-motion: no-preference) {
+      scroll-behavior: smooth;
+    }
   }
   body {
     @apply bg-background text-foreground;
   }
-  html {
-    @apply font-sans;
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+}
+
+/* ---------- tipografia ---------- */
+
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* o rótulo do dindin, uma vez só (substitui a string copiada em ~22 lugares) */
+@utility eyebrow {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+/* ---------- superfícies ---------- */
+
+/* vidro do header e da barra do wizard; borda/sombra ligam por classe à parte */
+@utility glass {
+  background-color: var(--glass);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+  @supports not (backdrop-filter: blur(1px)) {
+    background-color: var(--background);
+  }
+}
+
+/*
+  Malha de luz de uma SEÇÃO (hero, bloco final): três manchas radiais em verde e
+  papel + grão fino. Deriva devagar só em dispositivo com hover (desktop) e sem
+  reduced-motion; no celular fica parada. ::before = luz, ::after = grão.
+*/
+@utility bg-mesh {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -20%;
+    z-index: -2;
+    pointer-events: none;
+    background:
+      radial-gradient(60% 50% at 12% 8%, var(--mesh-1), transparent 70%),
+      radial-gradient(45% 40% at 88% 18%, var(--mesh-2), transparent 70%),
+      radial-gradient(50% 45% at 70% 95%, var(--mesh-3), transparent 70%);
+  }
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: var(--grain-opacity);
+    background-size: 180px 180px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    &::before {
+      animation: mesh-drift 28s ease-in-out infinite alternate;
+    }
+  }
+}
+
+/*
+  Luz interna de um PAINEL (Decisao, EstadoVazio, CtaFinal): estática, só ::before,
+  dentro do próprio raio. Convive com halo-border (que usa ::after) e com o
+  overflow: clip porque o anel do halo é desenhado por dentro da caixa.
+*/
+@utility mesh-panel {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    border-radius: inherit;
+    background:
+      radial-gradient(55% 70% at 12% 0%, var(--mesh-1), transparent 70%),
+      radial-gradient(40% 55% at 100% 100%, var(--mesh-2), transparent 70%);
+  }
+}
+
+/*
+  Borda de luz girando: conic-gradient num anel de 1px desenhado por DENTRO da
+  caixa (::after, inset 0). Em card com border de 1px, alinhe o anel sobre a
+  borda com [--halo-offset:1px]. Nome NÃO é border-glow: esse já é utilitário de
+  cor do Tailwind. Em reduced-motion vira um brilho fixo no canto.
+*/
+@utility halo-border {
+  position: relative;
+  isolation: isolate;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: calc(-1 * var(--halo-offset, 0px));
+    z-index: 1;
+    border-radius: inherit;
+    padding: 1px;
+    pointer-events: none;
+    background: conic-gradient(
+      from var(--border-angle),
+      transparent 0turn,
+      var(--glow) 0.14turn,
+      transparent 0.3turn,
+      transparent 0.5turn,
+      var(--glow-soft) 0.64turn,
+      transparent 0.8turn
+    );
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    &::after {
+      animation: border-spin 7s linear infinite;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &::after {
+      background: linear-gradient(135deg, var(--glow), transparent 55%);
+    }
+  }
+}
+
+/*
+  Brilho que segue o ponteiro. Vai num <span aria-hidden class="spotlight"> filho
+  do card (o card tem data-spotlight, `relative` e `isolate`); --mx/--my são
+  escritos pelo SpotlightTracker. Só em dispositivo com hover.
+*/
+@utility spotlight {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), var(--spot), transparent 65%);
+  transition: opacity var(--duration-base) var(--ease-out-expo);
+  @media (hover: hover) {
+    :where([data-spotlight]:hover) > & {
+      opacity: 1;
+    }
+  }
+}
+
+/* sombra esmeralda suave em repouso; borda acende e sombra cresce no hover */
+@utility glow-card {
+  box-shadow: var(--elev-card);
+  @media (hover: hover) {
+    &:hover {
+      box-shadow: var(--elev-card-hover);
+      border-color: var(--border-strong);
+    }
+  }
+}
+
+/* estados do botão principal; a transição é do `press` (nunca os dois declaram transition) */
+@utility glow-cta {
+  box-shadow: var(--elev-cta);
+  @media (hover: hover) {
+    &:hover {
+      box-shadow: var(--elev-cta-hover);
+      translate: 0 -1px;
+    }
+  }
+  &:active {
+    translate: 0 0;
+  }
+  &:disabled {
+    box-shadow: none;
+    translate: 0 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &:hover {
+      translate: 0 0;
+    }
+  }
+}
+
+/*
+  A ÚNICA transição dos interativos (cards, chips, tiles, botões, ícones-botão).
+  Quem usa `press` não recebe transition-* do Tailwind. Press encolhe 3% em 120ms;
+  em reduced-motion só as cores transicionam.
+*/
+@utility press {
+  transition-property: color, background-color, border-color, box-shadow, scale, translate, opacity;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out-expo);
+  &:active {
+    scale: 0.97;
+    transition-duration: var(--duration-fast);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    transition-property: color, background-color, border-color, box-shadow, opacity;
+    &:active {
+      scale: 1;
+    }
+  }
+}
+
+/* ---------- entradas (tudo lê --i, escrito por staggerStyle(i)) ---------- */
+
+/* entrada no mount, sem JS: sobe 14px com fade; stagger por --i */
+@utility rise-in {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: rise var(--duration-enter) var(--ease-out-expo) calc(var(--i, 0) * var(--stagger)) both;
+  }
+}
+
+/* a mesma entrada com desfoque: só no hero e na Decisao */
+@utility rise-in-blur {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: rise-blur var(--duration-enter) var(--ease-out-expo) calc(var(--i, 0) * var(--stagger)) both;
+  }
+}
+
+/*
+  Entrada por @starting-style: dispara quando o elemento entra no DOM (skeleton →
+  conteúdo, linha nova, resposta do FAQ). Sem JS, sem motion.
+*/
+@utility enter-up {
+  @media (prefers-reduced-motion: no-preference) {
+    transition:
+      opacity var(--duration-enter) var(--ease-out-quint),
+      translate 420ms var(--ease-out-expo);
+    transition-delay: calc(var(--i, 0) * var(--stagger));
+    @starting-style {
+      opacity: 0;
+      translate: 0 10px;
+    }
+  }
+}
+
+/* barra que cresce da esquerda ao entrar no DOM */
+@utility grow-in-x {
+  transform-origin: left center;
+  @media (prefers-reduced-motion: no-preference) {
+    transition: scale var(--duration-slow) var(--ease-out-expo);
+    transition-delay: calc(var(--i, 0) * var(--stagger));
+    @starting-style {
+      scale: 0 1;
+    }
+  }
+}
+
+/* preenchimento (width inline) que enche de 0 ao entrar no DOM */
+@utility grow-in-w {
+  @media (prefers-reduced-motion: no-preference) {
+    transition: width var(--duration-slow) var(--ease-out-expo);
+    transition-delay: calc(var(--i, 0) * var(--stagger));
+    @starting-style {
+      width: 0 !important;
+    }
+  }
+}
+
+/*
+  Título palavra por palavra: <Palavras> gera <span class="word"><span style="--i">.
+  Aplique no h1 com aria-label={texto}; os spans são aria-hidden.
+*/
+@utility rise-words {
+  & > .word {
+    display: inline-block;
+    overflow: hidden;
+    vertical-align: bottom;
+    padding-block-end: 0.15em;
+    margin-block-end: -0.15em;
+  }
+  & > .word > span {
+    display: inline-block;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    & > .word > span {
+      animation: rise-word 560ms var(--ease-out-expo) calc(var(--i, 0) * var(--stagger-words, 40ms)) both;
+    }
+  }
+}
+
+/*
+  Revela ao rolar. Só esconde quando o html tem a classe js (o script inline põe
+  antes da pintura) e o elemento ainda não tem data-shown; sem observer, revela
+  sozinho aos 2.5s com OUTRO keyframe (mudar o delay não reinicia animação).
+*/
+@utility reveal {
+  @media (prefers-reduced-motion: no-preference) {
+    :where(html.js) &:not([data-shown]) {
+      opacity: 0;
+      animation: rise-late var(--duration-enter) var(--ease-out-expo) 2.5s both;
+    }
+    &[data-shown] {
+      animation: rise var(--duration-enter) var(--ease-out-expo) calc(var(--i, 0) * var(--stagger)) both;
+    }
+  }
+}
+
+/*
+  Divisória que se desenha da esquerda quando o .reveal (mesmo elemento) ganha
+  data-shown. Sem JS: linha sólida. Usa ::before — não combinar com mark-warn.
+*/
+@utility rule-draw {
+  position: relative;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: var(--border-strong);
+    transform-origin: left center;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    :where(html.js) &:not([data-shown])::before {
+      scale: 0 1;
+    }
+    &[data-shown]::before {
+      animation: grow-x var(--duration-slow) var(--ease-out-expo) calc(var(--i, 0) * var(--stagger)) both;
+    }
+  }
+}
+
+/*
+  Barra lateral warn que "acende" de cima pra baixo 300ms depois do reveal do
+  degrau em destaque (OrdemCerta). Usa ::before — não combinar com rule-draw.
+*/
+@utility mark-warn {
+  position: relative;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0.75rem auto 0.75rem 0;
+    width: 2px;
+    border-radius: 9999px;
+    background: var(--warn);
+    transform-origin: top center;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    :where(html.js) &:not([data-shown])::before {
+      scale: 1 0;
+    }
+    &[data-shown]::before {
+      animation: grow-y var(--duration-slow) var(--ease-out-expo) calc(var(--i, 0) * var(--stagger) + 300ms) both;
+    }
+  }
+}
+
+/* degraus da Escada acendendo em sequência (110ms por --i) */
+@utility step-light {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: step-light var(--duration-slow) var(--ease-out-expo) calc(var(--i, 0) * 110ms) both;
+  }
+}
+
+/* luz que atravessa uma barra uma vez, depois que ela terminou de crescer */
+@utility bar-shine {
+  position: relative;
+  overflow: hidden;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 40%;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, var(--shimmer), transparent);
+    translate: -100% 0;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    &::after {
+      animation: bar-shine 1.2s var(--ease-out-quint) var(--duration-slow) 1 both;
+    }
+  }
+}
+
+/* bloco de esqueleto com brilho atravessando (translate = compositor) */
+@utility skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--track);
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    translate: -100% 0;
+    background: linear-gradient(90deg, transparent, var(--shimmer), transparent);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    &::after {
+      animation: shimmer 1.6s var(--ease-out-quint) infinite;
+    }
+  }
+}
+
+/*
+  Ícone que se desenha. SÓ nos SVGs de ui/drawn-icon.tsx, que têm pathLength="1"
+  em cada traço — por isso dasharray 1 fecha o traço inteiro em qualquer ícone.
+  Dentro de um .reveal ainda escondido, espera o data-shown pra começar.
+*/
+@utility icon-draw {
+  & :is(path, line, polyline) {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    & :is(path, line, polyline) {
+      animation: draw var(--duration-slow) var(--ease-out-expo) var(--draw-delay, 0ms) both;
+    }
+    :where(html.js) .reveal:not([data-shown]) & :is(path, line, polyline) {
+      animation: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    & :is(path, line, polyline) {
+      stroke-dashoffset: 0;
+    }
+  }
+}
+
+/* luz atrás do número gigante, só no escuro (no claro fica sujo); segue a cor do texto (primary ou warn) */
+@utility number-glow {
+  .dark & {
+    text-shadow: 0 0 28px color-mix(in oklch, currentColor 28%, transparent);
+  }
+}
+
+/* FAQ: details com altura animada (Chrome 131+; nos outros abre seco) */
+@utility details-anim {
+  interpolate-size: allow-keywords;
+  &::details-content {
+    height: 0;
+    overflow: clip;
+    transition:
+      height var(--duration-enter) var(--ease-out-expo),
+      content-visibility var(--duration-enter) allow-discrete;
+  }
+  &[open]::details-content {
+    height: auto;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &::details-content {
+      transition: none;
+    }
+  }
+}
+
+/* a escada da home: cada degrau entra 0.75rem mais pra dentro a partir de sm */
+@utility escada-degrau {
+  @media (width >= 40rem) {
+    margin-inline-start: calc(var(--i, 0) * 0.75rem);
+  }
+}
+
+/*
+  Sol → lua no botão de tema, 100% dirigido pela classe .dark do html: os raios
+  encolhem com mola e stagger, o disco cresce e a máscara circular desliza e
+  recorta a lua. Unidades em px (no viewBox 24 são unidades do usuário).
+*/
+@utility theme-icon {
+  & .ray {
+    transform-origin: center;
+    transition:
+      scale var(--duration-enter) var(--ease-spring),
+      opacity var(--duration-base) var(--ease-out-quint);
+    transition-delay: calc(var(--i, 0) * 30ms);
+  }
+  & .core {
+    transition: r var(--duration-enter) var(--ease-out-quint);
+  }
+  & .mask-circle {
+    transition:
+      cx var(--duration-enter) var(--ease-out-quint),
+      cy var(--duration-enter) var(--ease-out-quint);
+  }
+  & .icon {
+    transform-origin: center;
+    transition: rotate var(--duration-enter) var(--ease-out-quint);
+  }
+  .dark & .ray {
+    scale: 0;
+    opacity: 0;
+  }
+  .dark & .core {
+    r: 9px;
+  }
+  .dark & .mask-circle {
+    cx: 17px;
+    cy: 7px;
+  }
+  .dark & .icon {
+    rotate: 40deg;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    & .ray,
+    & .core,
+    & .mask-circle,
+    & .icon {
+      transition: none;
+    }
+  }
+}
+
+/* header ancorado nas transições de rota; neutralizado durante o círculo do tema */
+@utility vt-header {
+  view-transition-name: site-header;
+}
+
+/* ---------- view transitions ---------- */
+
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-group(site-header) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(site-header) {
+  display: none;
+}
+::view-transition-new(site-header) {
+  animation: none;
+}
+
+::view-transition-old(.nav-forward) {
+  --vt-dx: -48px;
+  animation:
+    var(--duration-exit) var(--ease-in-quart) both vt-fade reverse,
+    var(--duration-enter) var(--ease-out-expo) both vt-slide reverse;
+}
+::view-transition-new(.nav-forward) {
+  --vt-dx: 48px;
+  animation:
+    var(--duration-enter) var(--ease-out-expo) var(--duration-exit) both vt-fade,
+    var(--duration-enter) var(--ease-out-expo) both vt-slide;
+}
+::view-transition-old(.nav-back) {
+  --vt-dx: 48px;
+  animation:
+    var(--duration-exit) var(--ease-in-quart) both vt-fade reverse,
+    var(--duration-enter) var(--ease-out-expo) both vt-slide reverse;
+}
+::view-transition-new(.nav-back) {
+  --vt-dx: -48px;
+  animation:
+    var(--duration-enter) var(--ease-out-expo) var(--duration-exit) both vt-fade,
+    var(--duration-enter) var(--ease-out-expo) both vt-slide;
+}
+
+/* troca de tema: a nova pintura abre em círculo a partir do botão */
+html.theme-switching .vt-header {
+  view-transition-name: none;
+}
+html.theme-switching::view-transition-old(root) {
+  animation: none;
+  z-index: 1;
+}
+html.theme-switching::view-transition-new(root) {
+  z-index: 2;
+  animation: theme-reveal var(--duration-theme) var(--ease-out-quint) both;
+}
+html.theme-switching::view-transition-image-pair(root) {
+  isolation: auto;
+}
+/* sem startViewTransition: crossfade curto das cores */
+html.theme-fallback,
+html.theme-fallback *,
+html.theme-fallback *::before,
+html.theme-fallback *::after {
+  transition:
+    background-color 260ms var(--ease-out-quint),
+    color 260ms var(--ease-out-quint),
+    border-color 260ms var(--ease-out-quint),
+    fill 260ms var(--ease-out-quint),
+    stroke 260ms var(--ease-out-quint) !important;
+}
+
+/*
+  Rede de segurança de prefers-reduced-motion. Cada utilitário já se desliga
+  sozinho; isto garante que NENHUMA animação/transição CSS dure, inclusive as
+  view transitions. Quem quiser manter uma transição de cor em reduced-motion
+  precisa de exceção explícita abaixo deste bloco.
+*/
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+  }
+  html.theme-fallback,
+  html.theme-fallback * {
+    transition: none !important;
   }
 }
