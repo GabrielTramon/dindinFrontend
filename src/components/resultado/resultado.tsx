@@ -4,6 +4,7 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import { staggerStyle } from "@/components/motion/stagger";
 import {
   caminhoDoPlano,
+  cartaoDaMeta,
   gerarPlano,
   respostaDoPlano,
   validarPerfil,
@@ -16,6 +17,7 @@ import { Caminho } from "./caminho";
 import { DetalhesPlano } from "./detalhes-plano";
 import { Divisor } from "./divisor";
 import { JaGuardado } from "./ja-guardado";
+import { MetaCard } from "./meta-card";
 import { EstadoVazio } from "./estado-vazio";
 import { Resposta, RespostaDeCorte } from "./resposta";
 import { Skeleton } from "./skeleton";
@@ -105,6 +107,11 @@ function PlanoCompleto({ perfil }: { perfil: Perfil }) {
     [plano, perfil.meta, grupos, hoje],
   );
   const { marcos } = caminho;
+  // a meta à vista, com a MESMA projeção do caminho
+  const cartaoMeta = useMemo(
+    () => (perfil.meta && caminho.meta ? cartaoDaMeta(perfil.meta, caminho.meta, hoje) : null),
+    [perfil.meta, caminho.meta, hoje],
+  );
   // o cartão só fala da meta no degrau 4
   const projecaoMeta = plano.degrau === 4 ? (caminho.meta?.projecao ?? null) : null;
 
@@ -130,11 +137,16 @@ function PlanoCompleto({ perfil }: { perfil: Perfil }) {
       <div className={ESQUERDA}>
         <div className="enter-up" style={staggerStyle(0)}>
           {resposta.modo === "plano" ? (
-            <Resposta resposta={resposta} onEscolherRitmo={ritmo.escolher} />
+            <Resposta resposta={resposta} onEscolherRitmo={ritmo.escolher} mostrarAlvo={!(cartaoMeta && plano.degrau === 4)} />
           ) : (
             <RespostaDeCorte resposta={resposta} />
           )}
         </div>
+        {cartaoMeta && resposta.modo === "plano" && (
+          <div className="enter-up" style={staggerStyle(1)}>
+            <MetaCard cartao={cartaoMeta} />
+          </div>
+        )}
         {marcos.length >= 2 && (
           <div className="enter-up" style={staggerStyle(1)}>
             <Caminho marcos={marcos} />

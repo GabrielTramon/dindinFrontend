@@ -4,15 +4,17 @@ import { Ellipsis, Minus, Pencil, Plus, TrendingUp } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { IconeCategoria } from "@/components/categorias/icone-categoria";
 import { passoPct, textosDivisor, textosPote, type Grupo } from "@/domain";
-import { formatBRL, mascaraTaxa, taxaDoTexto, textoDaTaxa } from "@/lib/format";
+import { formatBRL, lerReaisInteiros, mascaraTaxa, taxaDoTexto, textoDaTaxa } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   COR_PRA_VOCE,
+  idBotaoReaisPote,
   idEditarRendimento,
   idMaisPote,
   idOpcoesPote,
   idPctPote,
   idPote,
+  idReaisPote,
   idRendimentoPote,
   MAX_PCT_RENDIMENTO,
   nomeDoPote,
@@ -30,6 +32,9 @@ import {
 
   Gravar só no commit (clique, Enter, sair do campo); nunca a cada tecla, e
   nunca com o campo vazio.
+
+  O R$ por mês embaixo do nome também é tocável: vira campo pra digitar o
+  valor EXATO (2.500 em vez dos 85% que davam 2.544). A % se ajusta sozinha.
 
   Embaixo do R$, o selo "Rende 0,8% ao mês" com um lápis do lado: o lápis
   troca o selo por um campo (Enter ou sair grava, Esc cancela, vazio = não
@@ -67,8 +72,14 @@ export interface PoteLinhaProps {
   nomeMeta: string | null;
   /** `plano.degrau === 4`: só aí o dinheiro do "Guardar" vai pra meta */
   degrauDeMetas: boolean;
+  /** o máximo em R$ que o pote pode ter agora (o valor dele + o que está no "Pra você") */
+  maxReais: number;
+  /** o máximo é a sobra inteira (nenhum outro pote ocupa espaço) */
+  maxEhTudo: boolean;
   /** a pessoa confirmou uma % nova */
   onPct: (pct: number) => void;
+  /** a pessoa digitou um valor exato em R$ por mês */
+  onReais: (valor: number) => void;
   /** a pessoa confirmou um rendimento novo (fração ao mês); undefined = não rende */
   onRendimento: (fracao: number | undefined) => void;
   onOpcoes: () => void;
@@ -84,12 +95,16 @@ export function PoteLinha({
   subtitulo,
   nomeMeta,
   degrauDeMetas,
+  maxReais,
+  maxEhTudo,
   onPct,
+  onReais,
   onRendimento,
   onOpcoes,
 }: PoteLinhaProps) {
   const nome = nomeDoPote(grupo);
   const [editando, setEditando] = useState(false);
+  const [editandoReais, setEditandoReais] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   // a % digitada no campo aberto, ainda sem gravar (null = campo vazio)
   const rascunho = useRef<number | null>(null);
@@ -191,10 +206,38 @@ export function PoteLinha({
         </div>
       </div>
 
-      <p className="mt-0.5 pl-4.5 text-sm text-ink-2 tnum sm:pl-12">
-        {formatBRL(reais)}/mês
+      <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1 pl-4.5 text-sm text-ink-2 tnum sm:pl-12">
+        {editandoReais ? (
+          <CampoReais
+            id={idReaisPote(grupo.id)}
+            nome={nome}
+            inicial={Math.round(grupo.valor)}
+            maxReais={maxReais}
+            avisoTeto={textosDivisor.maximoEmReais(maxReais, maxEhTudo)}
+            onAviso={setAviso}
+            onFim={(valor, via) => {
+              setEditandoReais(false);
+              setAviso(null);
+              if (valor !== null && valor !== Math.round(grupo.valor)) onReais(valor);
+              if (via === "teclado") devolverFoco(idBotaoReaisPote(grupo.id));
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            id={idBotaoReaisPote(grupo.id)}
+            onClick={() => {
+              setAviso(null);
+              setEditandoReais(true);
+            }}
+            aria-label={`${formatBRL(reais)} por mês em ${nome}. Tocar pra digitar o valor exato`}
+            className="-my-1.5 inline-flex min-h-8 items-center gap-1 rounded-md py-1 underline decoration-border-strong decoration-dotted underline-offset-4 outline-none hover:text-foreground hover:decoration-primary focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            {formatBRL(reais)}/mês
+          </button>
+        )}
         {subtitulo ? <span> · {subtitulo}</span> : null}
-      </p>
+      </div>
 
       <p aria-live="polite" className="pl-4.5 text-sm font-semibold text-foreground empty:hidden sm:pl-12">
         {aviso}
@@ -536,6 +579,100 @@ function CampoPct({ id, nome, inicial, maxPct, avisoTeto, onAviso, onRascunho, o
         %
       </span>
     </div>
+  );
+}
+
+interface CampoReaisProps {
+  id: string;
+  nome: string;
+  inicial: number;
+  maxReais: number;
+  avisoTeto: string;
+  onAviso: (aviso: string | null) => void;
+  /** null = cancelou (Esc ou campo vazio) */
+  onFim: (valor: number | null, via: ViaDoFim) => void;
+}
+
+const reaisNoCampo = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
+
+/**
+ * O valor exato do pote em reais por mês ("2.500" em vez dos 85% que davam
+ * 2.544). Mesmo contrato do campo da %: Enter ou sair grava, Esc cancela,
+ * vazio não grava; acima do que cabe, trava no máximo e diz por quê.
+ */
+function CampoReais({ id, nome, inicial, maxReais, avisoTeto, onAviso, onFim }: CampoReaisProps) {
+  const [texto, setTexto] = useState(reaisNoCampo(inicial));
+  const terminou = useRef(false);
+  const fimAtual = useUltimo(onFim);
+  const maxAtual = useUltimo(maxReais);
+  const depoisDoClique = useDepoisDoClique();
+  const teto = Math.floor(maxReais);
+
+  function terminar(valor: number | null, via: ViaDoFim) {
+    if (terminou.current) return;
+    terminou.current = true;
+    fimAtual.current(valor, via);
+  }
+
+  function confirmar(via: ViaDoFim) {
+    const n = lerReaisInteiros(texto);
+    if (n === undefined) return terminar(null, via);
+    terminar(Math.min(Math.max(0, n), Math.floor(maxAtual.current)), via);
+  }
+
+  function digitar(bruto: string) {
+    const n = lerReaisInteiros(bruto);
+    if (n === undefined) {
+      setTexto("");
+      return;
+    }
+    if (n > teto) {
+      setTexto(reaisNoCampo(teto));
+      onAviso(avisoTeto);
+      return;
+    }
+    onAviso(null);
+    setTexto(reaisNoCampo(n));
+  }
+
+  function tecla(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      confirmar("teclado");
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      onAviso(null);
+      terminar(null, "teclado");
+    }
+  }
+
+  return (
+    <span className="inline-flex h-9 items-center gap-1 rounded-lg border border-ring bg-card px-2 ring-3 ring-ring/40">
+      <label htmlFor={id} className="sr-only">
+        Quantos reais por mês vão pra {nome}
+      </label>
+      <span aria-hidden="true" className="text-sm font-bold text-ink-2">
+        R$
+      </span>
+      <input
+        id={id}
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        autoFocus
+        enterKeyHint="done"
+        value={texto}
+        onFocus={(e) => e.currentTarget.select()}
+        onChange={(e) => digitar(e.target.value)}
+        onKeyDown={tecla}
+        onBlur={() => depoisDoClique(() => confirmar("saiu"))}
+        className="w-20 bg-transparent text-right text-base font-extrabold text-foreground tnum outline-none"
+      />
+      <span aria-hidden="true" className="text-sm font-bold text-ink-2">
+        /mês
+      </span>
+    </span>
   );
 }
 

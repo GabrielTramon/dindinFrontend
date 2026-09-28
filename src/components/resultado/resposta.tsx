@@ -30,9 +30,11 @@ const LINK =
 interface RespostaProps {
   resposta: RespostaPlano;
   onEscolherRitmo: (ritmo: Ritmo) => void;
+  /** false quando o cartão "Sua meta" logo abaixo já mostra o valor da meta (degrau 4) */
+  mostrarAlvo?: boolean;
 }
 
-export function Resposta({ resposta, onEscolherRitmo }: RespostaProps) {
+export function Resposta({ resposta, onEscolherRitmo, mostrarAlvo = true }: RespostaProps) {
   const acao = resposta.acaoSugerida;
   return (
     <section aria-labelledby="resposta-objetivo" className="mesh-panel rounded-3xl bg-accent p-5 sm:p-8">
@@ -47,7 +49,7 @@ export function Resposta({ resposta, onEscolherRitmo }: RespostaProps) {
         </button>
       </div>
 
-      {resposta.alvo && <Alvo alvo={resposta.alvo} />}
+      {mostrarAlvo && resposta.alvo && <Alvo alvo={resposta.alvo} />}
 
       <dl className="mt-4">
         <div>
@@ -69,6 +71,7 @@ export function Resposta({ resposta, onEscolherRitmo }: RespostaProps) {
               Com o rendimento, chega {formatMeses(resposta.rendimentoAdianta)} antes
             </dd>
           )}
+          {resposta.depois && <dd className="mt-1 text-sm text-ink-2">{resposta.depois}</dd>}
         </div>
       </dl>
 

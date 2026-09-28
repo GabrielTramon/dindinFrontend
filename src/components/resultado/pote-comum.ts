@@ -9,6 +9,8 @@ import { arredondar } from "@/lib/format";
 
 export const idPote = (id: string) => `pote-${id}`;
 export const idPctPote = (id: string) => `pote-${id}-pct`;
+export const idReaisPote = (id: string) => `pote-${id}-reais`;
+export const idBotaoReaisPote = (id: string) => `pote-${id}-botao-reais`;
 export const idMaisPote = (id: string) => `pote-${id}-mais`;
 export const idOpcoesPote = (id: string) => `pote-${id}-opcoes`;
 export const idNomePote = (id: string) => `pote-${id}-nome`;

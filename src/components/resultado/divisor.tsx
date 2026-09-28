@@ -199,12 +199,26 @@ export function Divisor({ plano, perfil, uso, ritmo }: DivisorProps) {
     const valor = grupo.doSistema
       ? Math.min(Math.round(valorDePctNoTeto(pct, base, max)), max)
       : valorDePctNoTeto(pct, base, max);
+    aplicarValor(grupo, valor, (s) => s.pct === pct);
+  }
+
+  /** O valor exato em R$ que ela digitou: sem passar pela %, então 2.500 fica 2.500. */
+  function definirReais(grupo: Grupo, digitado: number) {
+    const max = tetoDe(grupo);
+    const valor = Math.min(Math.max(0, Math.round(digitado)), Math.floor(max));
+    // um valor igual ao de um ritmo é escolher o ritmo
+    aplicarValor(grupo, valor, (s) => centavos(s.plano.aporte) === centavos(valor));
+  }
+
+  function aplicarValor(grupo: Grupo, valor: number, ehDoRitmo: (s: (typeof ritmo.simulacoes)[number]) => boolean) {
+    const max = tetoDe(grupo);
+    const pct = pctDoPote(grupo, valor);
     if (centavos(valor) === centavos(grupo.valor)) return;
 
     if (grupo.doSistema) {
-      // cair exatamente na % de um ritmo é escolher o ritmo, sem virar "à mão"
+      // cair exatamente num ritmo é escolher o ritmo, sem virar "à mão"
       const doRitmo = ritmo.simulacoes.find(
-        (s) => s.pct === pct && s.plano.aporte <= max + 0.005 && s.plano.resumo.excedente === base,
+        (s) => ehDoRitmo(s) && s.plano.aporte <= max + 0.005 && s.plano.resumo.excedente === base,
       );
       // o ritmo já encolhe os itens do "Guardar" que não cabem no aporte dele
       if (doRitmo) ritmo.escolher(doRitmo.ritmo);
@@ -339,7 +353,10 @@ export function Divisor({ plano, perfil, uso, ritmo }: DivisorProps) {
                 subtitulo={grupo.doSistema && esteMes ? textosDivisor.guardarEsteMes(esteMes) : undefined}
                 nomeMeta={nomeMeta}
                 degrauDeMetas={degrauDeMetas}
+                maxReais={tetoDe(grupo)}
+                maxEhTudo={grupos.every((g) => g.id === grupo.id || !(g.valor > 0))}
                 onPct={(pct) => definirPct(grupo, pct)}
+                onReais={(valor) => definirReais(grupo, valor)}
                 onRendimento={(rendimentoMensal) => {
                   trocar(grupo.id, { rendimentoMensal });
                   setAnuncio(
