@@ -13,7 +13,7 @@ Planejador financeiro gratuito, em pt-BR, pra quem está começando a trabalhar 
 
 ## Estrutura
 
-- `src/domain/` — motor puro, sem React e sem I/O. `types` (Perfil, Plano…), `config` (constantes com o porquê), `motor` (a cascata: `gerarPlano`), `textos` + `resposta` (as frases do plano: `textos` as da cascata e dos detalhes, `resposta` as do cartão do topo, do divisor e dos potes — `textosDivisor`, `textosPote`; frase nova mora num dos dois, nunca no componente nem em `components/resultado/pote-comum.ts`), `schema` (zod + `validarPerfil`), `projecao` (metas), `categorias` (catálogo de gastos fixos), `renda` (bruto → líquido), `organizacao` (grupos sobre o que sobra + projeção da meta), `divisor` (o que sobra em %: limites dos potes, reescala por `baseReferencia`, simulação dos ritmos), `marcos` ("Seu caminho": marcos com prazo e mês), `metas-catalogo` (metas e grupos sugeridos, com ícone). Importar sempre via `@/domain`.
+- `src/domain/` — motor puro, sem React e sem I/O. `types` (Perfil, Plano…), `config` (constantes com o porquê), `motor` (a cascata: `gerarPlano`), `textos` + `resposta` (as frases do plano: `textos` as da cascata e dos detalhes, `resposta` as do cartão do topo, do divisor e dos potes — `textosDivisor`, `textosPote`; frase nova mora num dos dois, nunca no componente nem em `components/resultado/pote-comum.ts`), `schema` (zod + `validarPerfil`), `projecao` (metas), `categorias` (catálogo de gastos fixos), `renda` (bruto → líquido), `beneficios` (vales: o que cada um paga e o desconto do VT), `decimo-terceiro` (o 13º como entrada extra dos prazos), `organizacao` (grupos sobre o que sobra + projeção da meta), `divisor` (o que sobra em %: limites dos potes, reescala por `baseReferencia`, simulação dos ritmos), `marcos` ("Seu caminho": marcos com prazo e mês), `metas-catalogo` (metas e grupos sugeridos, com ícone). Importar sempre via `@/domain`.
 - `src/lib/` — `format` (formatBRL, formatPct, formatMeses, parseBRL, mascaraInteiroBRL), `storage` (localStorage seguro: readJSON/writeJSON/removeKey + STORAGE_KEYS), `api` (cliente da API da conta: cadastrar, entrar, esqueci/redefinir a senha, confirmar o e-mail, /me, trocar a senha, exportar, excluir), `sessao` (sessão, retorno pós-login, `useSessao`, `confirmarSessaoNoServidor`), `pdf` (`gerarPdfDoPlano` — hoje devolve "em-breve"; plugar o PDF é trocar só ela), `utils` (cn).
 - `src/components/ui/` — shadcn estilo base-nova sobre `@base-ui/react`. `brand/logo` (`<Logo />`, `<LogoMark />`). Componentes de página em `home/`, `onboarding/`, `resultado/`, `conta/` (ContaLink do header, BotaoPdf + gaveta do convite, os formulários de conta e as telas de entrar e da /conta — ver "Conta").
 - `src/app/` — `/` home · `/plano` onboarding (9 perguntas, uma por tela, passo em `?p=N`) · `/plano/resultado` · `/entrar` (e-mail e senha; também abre o link "Confirme seu e-mail", `#token=`) · `/criar-conta` · `/esqueci-senha` · `/redefinir-senha` (`#token=`) · `/conta` (e-mail confirmado ou não, senha, sair, baixar e excluir os dados). As telas de conta são noindex e montam o próprio ToastProvider.
@@ -25,8 +25,25 @@ Quem é CLT pode informar o **bruto**; o app calcula o líquido com INSS + IRRF 
 - As tabelas ficam em `TABELAS_FOLHA` (config.ts), num literal só: atualizar em janeiro é editar dados. `renda.test.ts` compara a data de hoje com `vigenciaAte` e **fica vermelho sozinho quando a tabela vence**.
 - Arredondar UMA vez no fim de cada etapa (INSS, depois IRRF, depois o líquido). Somar faixas já arredondadas erra centavo — há teste que prova.
 - O redutor da Lei 15.270/2025 usa o teto literal da tabela, não a fórmula (a fórmula em R$ 5.000 arredonda pra 312,90 e vira imposto negativo).
-- **Vale-transporte e plano de saúde não entram aqui**: eles são gasto fixo. Descontar dos dois lados tira o mesmo dinheiro duas vezes.
+- **Plano de saúde não entra aqui**: é gasto fixo. Descontar dos dois lados tira o mesmo dinheiro duas vezes.
+- **Vale-transporte só entra quando a pessoa informa o VT** (pergunta 1): aí o vale paga o transporte da lista e o holerite desconta até 6% do bruto, nunca mais que o vale (`descontoDoValeTransporte`, `Holerite.valeTransporte`). Quem informou o que cai na conta já recebeu com o desconto feito.
 - PJ e informal informam o que cai na conta — sem o anexo do Simples e o Fator R não existe conta honesta. Pra eles, o grupo "Imposto" aparece sugerido na tela de organização.
+
+## Vales e 13º
+
+**Vales** (`Perfil.beneficios`, pergunta 1, embaixo do salário; `beneficios.ts`): VR, VA, VT e "Outro" com nome. Vale não é dinheiro na conta, então **entra no plano só até o valor dos gastos fixos que ele paga** (`aplicarBeneficios`): VR e VA pagam `refeicao` e `mercado`, VT paga `transporte_publico` e `combustivel`, "Outro" paga o que sobrou de qualquer gasto. O resto fica no cartão (`Plano.beneficios.semUso`) e a tela diz que não vira dinheiro guardado.
+
+- A parte que paga soma do lado de quem entra (`Resumo.beneficios`; excedente = renda + beneficios − custos). O custo continua cheio: é ele que dimensiona fôlego e reserva (quem perde o emprego perde o vale junto).
+- A pergunta dos gastos lembra quando um vale não acha gasto pra pagar (`beneficiosSemGasto`) e mostra "Os vales pagam R$ X disso" com a mesma conta do motor.
+- Lista vazia sai do perfil como ausente (o plano de quem não tem vale não muda).
+
+**13º** (`Perfil.decimoTerceiro`, pergunta 2, embaixo de "fixo ou varia?"; `decimo-terceiro.ts`): CLT responde "usar no plano?", PJ "seu contrato paga?"; informal não é perguntado e o motor ignora. Trocar o tipo de renda limpa a resposta.
+
+- **Nunca entra no aporte do mês** (ele não existe nos outros onze): entra como entrada extra nas projeções, **inteiro, em dezembro, no passo da vez** — o que passar segue pro passo seguinte no mesmo mês. O mês a mês do plano não muda; os prazos encurtam.
+- Valor: o líquido de um mês (+ o desconto do VT de quem informou o bruto, que não sai do 13º). Mês: `primeiroMesDoDecimo` (dezembro até o dia 20; depois, o do ano que vem).
+- **O motor só conta o 13º com a data** (`OpcoesMotor.hoje`). Sem ela, os prazos são os de sempre, bit a bit — há teste. A tela do plano passa `hoje` em `gerarPlano` e em `simularRitmos`; chamada nova que mostre prazo precisa passar também.
+- **Sem 13º, o código de antes roda intacto**: cada projeção tem o ramo `extra === null` com a conta antiga. Com ele, a trava de juros das dívidas compara um ano com o outro (`Cronograma.ciclo`), e a sobra do 13º no mês em que um passo fecha é carregada pro seguinte (`sobraParaAMeta` leva a última pra meta).
+- O prazo do fôlego mora em `Folego.mesesParaCompletar` (motor); o caminho e o cartão leem de lá. A meta recebe o 13º por `decimoNaMeta` (marcos.ts), que o cartão, o caminho e os segmentos de ritmo usam igual. O cartão do topo diz "Os prazos já contam com o 13º…" (`RespostaPlano.decimo`) e "Sua meta" cita "o 13º todo dezembro" (`MetaNoCaminho.decimoPorAno`).
 
 ## Ritmo
 
@@ -42,7 +59,7 @@ A pessoa divide em **porcentagem** o que sobra (excedente = renda − custos = 1
 
 - **A soma dos potes fecha em 100% da sobra**: cada [+] para no teto do pote (o valor dele + o que está no "Pra você"). Dado antigo que passa da sobra **avisa** e oferece "Ajustar proporcionalmente", que reparte a sobra na proporção dos potes.
 - Cada pote aceita % (± de 5 ou tocando na %) **e o valor exato em R$** (tocando no "R$ X/mês" embaixo do nome): 2.500 fica 2.500, a % é que se ajusta.
-- **A meta tem cartão próprio** ("Sua meta", `meta-card.tsx` + `cartaoDaMeta` em `cartao-meta.ts`), logo abaixo do topo, em qualquer passo: já tem / alvo / barra / quando chega / como. O topo fala do passo de AGORA; antes do degrau 4 ele diz "Esse é o passo de agora. Depois, o plano segue pra {meta}" — sem isso "Montar seu fôlego · por 1 mês" era lido como o prazo da meta.
+- **A meta tem cartão próprio** ("Sua meta", `meta-card.tsx` + `cartaoDaMeta` em `cartao-meta.ts`), logo abaixo do topo, em qualquer passo: já tem / alvo / barra / quando chega / como. O topo fala do passo de AGORA, e antes do degrau 4 o tempo dele tem **duas linhas com nome**: "Fôlego pronto em 1 mês" e "{meta} em 4 meses" (`EtapasResposta`, com a projeção do caminho — a mesma de "Sua meta"; por isso a tela passa `projecaoMeta` em qualquer degrau). Prazo sem nome ao lado vira o prazo da meta na cabeça de quem lê: "por 1 mês" sozinho, mesmo com a frase "Esse é o passo de agora" embaixo, foi lido como "1 mês até a meta" duas vezes. Sem a projeção, o cartão cai nessa frase (`depois`).
 - O formato gravado continua em **reais** (`Grupo.valor`, `aporteEscolhido`); a % é derivada na leitura. Junto dos potes vai `baseReferencia` (a sobra na hora de gravar): quando a sobra muda, `reescalarGrupos` mantém a **mesma %**. Sem ela (dado antigo), vale a base atual até a próxima gravação.
 - Porcentagem e "ajustar proporcionalmente" usam maior resto em centavos, nos dois níveis (grupos e itens), pra soma fechar em 100% e no centavo.
 - Cada grupo tem `contaParaMeta` (entra na soma da meta principal) e `rendimentoMensal` opcional, digitado pela pessoa — o app nunca sugere taxa nem onde investir. O rendimento fica **à vista na linha do pote** ("Rende 0,8% ao mês" + lápis, em `pote-linha.tsx`), não na gaveta ⋯; o cartão do topo diz quantos meses ele adianta a meta.
@@ -52,6 +69,14 @@ A pessoa divide em **porcentagem** o que sobra (excedente = renda − custos = 1
 - **Menos de R$ 1 livre é resíduo de centavos e vale 0** (`LIVRE_MINIMO`): o motor guarda o aporte em reais inteiros, então sobra de R$ 1.000,55 com o Guardar em 100% deixa R$ 0,55 de fora. O cartão (`respostaDoPlano`) e o divisor (`livreQueConta`, `tetoEmReais`, `pctDoGuardar`) dão o MESMO R$, a MESMA % (100, não 98) e o mesmo "nada livre" — há teste cruzando os dois em `usar-organizacao.test.ts`. A equação do topo do divisor mostra a sobra arredondada ("= R$ 1.001 pra dividir"), sem centavos, como todo dinheiro na UI.
 - Trocar de ritmo encolhe os outros potes que não cabem com `outrosPotesQueCabem` (domínio), a mesma função que projeta o prazo de cada ritmo no cartão.
 - Os grupos ficam em `STORAGE_KEYS.organizacao`, **fora do perfil**: o perfil é revalidado inteiro a cada render e uma árvore estranha não pode derrubar o plano da tela.
+
+## E se você mantiver? (simulador)
+
+Na tela do plano, depois do divisor: quanto vira guardar um valor por mês por 6 meses, 1, 2, 5, 10 e 20 anos (`PERIODOS_DA_TABELA`) e por um tempo que a pessoa digita (anos ou meses, até 50 anos). A conta é `simularNoTempo`/`guardarPor` (`simulador.ts`), com a convenção de mês das projeções; as frases, `textosSimulador` (resposta.ts).
+
+- **É simulador, não plano**: começa com o valor do Guardar (`resposta.valorMes`, segue o ritmo enquanto ela não digitar outro), o rendimento do pote Guardar e o 13º quando ele entra no plano (dá pra desmarcar). Nada do que ela muda ali é gravado.
+- Rendimento só o que a pessoa digitou (campo vazio = não rende); o app não sugere taxa. Sem rendimento, a tabela mostra só o total (a coluna "Você guarda" seria igual).
+- Diz que os valores não descontam a inflação e, nos degraus 1 e 3, que o valor ainda vai pra dívida.
 
 ## A cascata (o produto)
 
@@ -66,7 +91,7 @@ Não existe um campo único somando tudo: a pessoa escolhe categorias e informa 
 O catálogo vive em `src/domain/categorias.ts` e é a fonte da verdade. Cada categoria tem `slug`, `nome`, `grupo` e `icone` (nome do componente lucide, desenhado por `components/categorias/icone-categoria.tsx` — ícone desconhecido cai no padrão `Tag`).
 
 - **Slug publicado nunca muda**: já está no localStorage de quem usou. Para aposentar uma categoria, tire da lista; não renomeie o slug.
-- Mexeu no catálogo? Espelhe em `dindinBackend/prisma/categorias.ts` e rode `yarn db:seed` lá.
+- Mexeu no catálogo? No backend: `yarn motor:sync`, uma migration com o INSERT/UPDATE do catálogo global (é pela migration que o Postgres de teste e o de produção recebem as categorias — ver `20260928000000_categoria_refeicao`) e `yarn prisma:deploy` no banco local. `yarn db:seed` realinha nome, ícone e ordem num banco que já existe.
 - O grupo `moradia` fica fora do onboarding: moradia é a pergunta 5, com lógica própria de pulo.
 - `SLUG_OUTRO` é a categoria livre — a pessoa dá o nome e o ícone é o padrão. É o único slug que pode repetir na mesma lista.
 

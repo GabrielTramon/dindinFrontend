@@ -76,9 +76,15 @@ export function gruposComRitmo(planoNovo: Plano, grupos: Grupo[]): GruposDoRitmo
   };
 }
 
-export function usarEscolhaDeRitmo(perfil: Perfil, plano: Plano, uso: UsoDaOrganizacao): EscolhaDeRitmo {
+export function usarEscolhaDeRitmo(
+  perfil: Perfil,
+  plano: Plano,
+  uso: UsoDaOrganizacao,
+  hoje: Date,
+): EscolhaDeRitmo {
   const toast = useToast();
-  const simulacoes = useMemo(() => simularRitmos(perfil), [perfil]);
+  // a mesma data do plano: o prazo de cada ritmo conta o 13º igual ao cartão do topo
+  const simulacoes = useMemo(() => simularRitmos(perfil, { hoje }), [perfil, hoje]);
   const personalizado = perfil.aporteEscolhido !== undefined;
   const pctAtual = pctDoGuardar(uso.aporte, plano.resumo.excedente);
   const { grupos, salvarGrupos } = uso;

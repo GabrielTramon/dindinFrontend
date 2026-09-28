@@ -1,13 +1,15 @@
 import {
+  beneficioSchema,
   categoriaPorSlug,
   dividaSchema,
   gastoFixoSchema,
   metaSchema,
+  nomeDoBeneficio,
   perfilSchema,
   SLUG_OUTRO,
   type PerfilInput,
 } from "@/domain";
-import { moradiaSemCusto, type GastoRascunho, type Respostas } from "./respostas";
+import { moradiaSemCusto, type BeneficioRascunho, type GastoRascunho, type Respostas } from "./respostas";
 
 /*
   As 9 perguntas, na ordem. Cada passo sabe se está respondido (`valido`),
@@ -46,7 +48,7 @@ export interface Passo {
   pular?: (r: Respostas) => boolean;
 }
 
-interface Problema {
+export interface Problema {
   mensagem: string;
   caminho: CaminhoDoCampo;
 }
@@ -143,6 +145,49 @@ function faltaNasDividas(r: Respostas): string | undefined {
     : `Falta dizer quanto você deve na dívida ${numero}.`;
 }
 
+function rotuloDoBeneficio(b: BeneficioRascunho): string {
+  return b.tipo === "outro" && !b.nome?.trim() ? "Outro benefício" : nomeDoBeneficio(b);
+}
+
+/*
+  Os vales moram na pergunta 1, embaixo do salário, e são opcionais: a pergunta
+  só trava por causa deles quando uma linha está pela metade ou errada. As
+  mensagens aparecem no bloco dos vales (renda-controle), não embaixo do
+  salário — o campo do salário não tem culpa.
+*/
+
+/** Um vale digitado que não serve (valor 0, "outro" com valor e sem nome). */
+export function problemaDosBeneficios(r: Respostas): Problema | undefined {
+  const lista = r.beneficios;
+  if (lista === undefined) return undefined;
+  for (const [i, b] of lista.entries()) {
+    if (b.valor === undefined) continue;
+    const issue = beneficioSchema.safeParse(b).error?.issues.at(0);
+    if (issue) return { mensagem: `${rotuloDoBeneficio(b)}: ${minuscula(issue.message)}`, caminho: [i, ...issue.path] };
+  }
+  if (lista.some((b) => b.valor === undefined)) return undefined;
+  const issue = perfilSchema.shape.beneficios.safeParse(lista).error?.issues.at(0);
+  return issue && { mensagem: issue.message, caminho: issue.path };
+}
+
+/** A linha de vale ainda sem valor: não é erro, mas o Continuar espera. */
+export function faltaNosBeneficios(r: Respostas): string | undefined {
+  const b = r.beneficios?.find((x) => x.valor === undefined);
+  if (b === undefined) return undefined;
+  if (b.tipo === "outro" && !b.nome?.trim()) return "Falta o nome e o valor do outro benefício.";
+  return `Falta dizer quanto vem de ${rotuloDoBeneficio(b)}.`;
+}
+
+const beneficiosProntos = (r: Respostas) => problemaDosBeneficios(r) === undefined && faltaNosBeneficios(r) === undefined;
+
+/**
+ * CLT e PJ respondem se o 13º entra no plano; informal não é perguntado.
+ * `decimoTerceiro` undefined = ainda não respondeu.
+ */
+export function faltaODecimo(r: Respostas): boolean {
+  return (r.tipoRenda === "clt" || r.tipoRenda === "pj") && r.decimoTerceiro === undefined;
+}
+
 /**
  * Quem tem algo guardado responde se isso entra na meta: `guardados`
  * undefined é "não respondeu" ([] é "não"). Sem nada guardado, não há pergunta.
@@ -159,6 +204,7 @@ function problemaDaMeta(r: Respostas): Problema | undefined {
 }
 
 const renda = campo("rendaMensal");
+const tipoRenda = campo("tipoRenda");
 const salarioBruto = campo("salarioBruto");
 const idade = campo("idade");
 const gastosFixos = campo("gastosFixos");
@@ -179,13 +225,16 @@ export const PASSOS: readonly Passo[] = [
           : "O valor do contrato, antes dos descontos. O dindin calcula o que cai na conta.",
     // no modo bruto quem tem limite próprio é o bruto digitado: R$ 1,2 mi de bruto dá menos de R$ 1 mi
     // de líquido, passaria aqui e só cairia no fim, em validarPerfil
-    valido: (r) => renda.valido(r) && (r.rendaInformada !== "bruta" || salarioBruto.valido(r)),
+    valido: (r) =>
+      renda.valido(r) && (r.rendaInformada !== "bruta" || salarioBruto.valido(r)) && beneficiosProntos(r),
     erro: (r) => (r.rendaInformada === "bruta" ? salarioBruto.erro?.(r) : undefined) ?? renda.erro?.(r),
   },
   {
     id: "tipoRenda",
     pergunta: "Esse valor é fixo ou varia?",
-    ...campo("tipoRenda"),
+    ...tipoRenda,
+    valido: (r) => tipoRenda.valido(r) && !faltaODecimo(r),
+    falta: (r) => (faltaODecimo(r) ? "Falta dizer se o 13º entra no plano." : undefined),
   },
   {
     id: "idade",

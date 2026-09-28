@@ -9,6 +9,8 @@ import { staggerStyle } from "@/components/motion/stagger";
 import { CheckDraw } from "@/components/ui/drawn-icon";
 import { IconButton } from "@/components/ui/icon-button";
 import {
+  aplicarBeneficios,
+  beneficiosSemGasto,
   categoriaPorSlug,
   GRUPOS_DO_ONBOARDING,
   ICONE_PADRAO,
@@ -16,10 +18,11 @@ import {
   ROTULO_GRUPO,
   SLUG_OUTRO,
 } from "@/domain";
+import { formatBRL } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { MoneyInput } from "./money-input";
 import type { ErroNaLinha } from "./passos";
-import type { GastoRascunho } from "./respostas";
+import type { BeneficioRascunho, GastoRascunho } from "./respostas";
 
 /*
   A pergunta 6. Em vez de um número só somando tudo, a pessoa escolhe as
@@ -69,9 +72,17 @@ interface GastosEditorProps {
   idErro?: string;
   /** a linha e o campo que a linha de erro cita */
   erroEm?: ErroNaLinha;
+  /** os vales da pergunta 1: dizem quanto dos gastos eles pagam, e lembram do gasto que falta */
+  beneficios?: BeneficioRascunho[];
 }
 
-export function GastosEditor({ gastos, onChange, legend, describedBy, idErro, erroEm }: GastosEditorProps) {
+/** "Mercado ou Refeição fora" — os gastos que um vale paga, pelo nome do catálogo. */
+function nomesDosGastos(slugs: readonly string[]): string {
+  const nomes = slugs.map((s) => categoriaPorSlug(s)?.nome ?? s);
+  return nomes.length <= 1 ? (nomes[0] ?? "") : `${nomes.slice(0, -1).join(", ")} ou ${nomes.at(-1)}`;
+}
+
+export function GastosEditor({ gastos, onChange, legend, describedBy, idErro, erroEm, beneficios }: GastosEditorProps) {
   const lista = gastos ?? [];
   // [] é resposta ("não tenho"); undefined é "ainda não respondi" — só a primeira marca o botão
   const nenhum = gastos !== undefined && gastos.length === 0;
@@ -79,6 +90,9 @@ export function GastosEditor({ gastos, onChange, legend, describedBy, idErro, er
   // "outro" pode repetir (cada um tem nome próprio); as do catálogo, não
   const usados = new Set(lista.map((g) => g.categoria).filter((c) => c !== SLUG_OUTRO));
   const total = lista.reduce((acc, g) => acc + (g.valor ?? 0), 0);
+  // a mesma conta do motor; linha em branco vale 0
+  const pagoPelosVales = aplicarBeneficios(beneficios, lista).pagaGastos;
+  const semGasto = beneficiosSemGasto(beneficios, lista);
 
   // Adicionar e remover mexem na lista embaixo do foco. O id aqui recebe o foco no render seguinte.
   const focoPendente = useRef<string | null>(null);
@@ -119,6 +133,17 @@ export function GastosEditor({ gastos, onChange, legend, describedBy, idErro, er
     // min-w-0 em cada nível: a trilha auto do grid cresceria até o min-content da linha (nome
     // nowrap, valor, X) e a página inteira rolaria de lado no celular
     <div className="grid min-w-0 gap-6">
+      {semGasto.length > 0 && (
+        <ul aria-live="polite" className="grid gap-1 rounded-2xl bg-accent p-4 text-sm text-ink-2">
+          {semGasto.map((b) => (
+            <li key={b.tipo}>
+              Seu {b.nome.toLocaleLowerCase("pt-BR")} paga {nomesDosGastos(b.paga ?? [])}: toque no que você tem e diga
+              quanto sai. No plano, o vale paga essa parte.
+            </li>
+          ))}
+        </ul>
+      )}
+
       {lista.length > 0 && (
         <div className="grid min-w-0 gap-3">
           <ul className="grid min-w-0 gap-2">
@@ -152,6 +177,9 @@ export function GastosEditor({ gastos, onChange, legend, describedBy, idErro, er
               <CountUp value={total} />
             </span>
           </p>
+          {pagoPelosVales > 0 && (
+            <p className="-mt-1 text-right text-sm text-ink-2 tnum">Os vales pagam {formatBRL(pagoPelosVales)} disso</p>
+          )}
         </div>
       )}
 

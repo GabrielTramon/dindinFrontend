@@ -3,7 +3,7 @@
 import { CircleCheck, Flag, TrendingUp } from "lucide-react";
 import { ctaClasses } from "@/components/layout/cta-link";
 import { CountUp } from "@/components/motion/count-up";
-import type { AlvoResposta, RespostaCorte, RespostaPlano, Ritmo, TempoResposta } from "@/domain";
+import type { AlvoResposta, EtapasResposta, RespostaCorte, RespostaPlano, Ritmo, TempoResposta } from "@/domain";
 import { formatBRL, formatMeses } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { abrirDetalhes } from "./detalhes-plano";
@@ -64,7 +64,7 @@ export function Resposta({ resposta, onEscolherRitmo, mostrarAlvo = true }: Resp
         </div>
         <div className="mt-4">
           <dt className="sr-only">Por quanto tempo</dt>
-          <Tempo tempo={resposta.tempo} />
+          {resposta.etapas ? <Etapas tempo={resposta.tempo} etapas={resposta.etapas} /> : <Tempo tempo={resposta.tempo} />}
           {resposta.rendimentoAdianta !== undefined && (
             <dd className="mt-1 inline-flex items-center gap-1.5 text-sm font-bold text-primary">
               <TrendingUp aria-hidden="true" className="size-4 shrink-0" />
@@ -72,6 +72,7 @@ export function Resposta({ resposta, onEscolherRitmo, mostrarAlvo = true }: Resp
             </dd>
           )}
           {resposta.depois && <dd className="mt-1 text-sm text-ink-2">{resposta.depois}</dd>}
+          {resposta.decimo && <dd className="mt-1 text-sm text-ink-2">{resposta.decimo}</dd>}
         </div>
       </dl>
 
@@ -116,6 +117,54 @@ function Alvo({ alvo }: { alvo: AlvoResposta }) {
         {alvo.detalhe && <span className="text-sm font-bold text-ink-2 tnum">{alvo.detalhe}</span>}
       </div>
     </div>
+  );
+}
+
+/** o marcador de cada linha das etapas: cheio no passo de agora, vazado na meta (o mesmo desenho do caminho) */
+const MARCADOR = "mt-[0.55em] size-2.5 shrink-0 rounded-full";
+
+/*
+  Antes da meta, o tempo tem duas linhas, e cada prazo diz do que é: "Fôlego
+  pronto em 1 mês" e "Liberdade financeira em 4 meses". Um "por 1 mês" sozinho
+  era lido como o prazo da meta. Os dois contam a partir de agora, como o caminho.
+*/
+function Etapas({ tempo, etapas }: { tempo: TempoResposta; etapas: EtapasResposta }) {
+  const { meta } = etapas;
+  return (
+    <>
+      {tempo.tipo === "prazo" ? (
+        <dd className="flex items-start gap-2.5 text-lg font-bold">
+          <span aria-hidden="true" className={cn(MARCADOR, "bg-primary")} />
+          <span className="min-w-0">
+            <span className="sr-only">{tempo.rotuloSr}</span>
+            <span aria-hidden="true">
+              {etapas.passo} em <CountUp value={tempo.meses} format={formatarMeses} className="tnum" />
+              <span className="block text-base font-normal text-ink-2">até {tempo.mes}</span>
+            </span>
+          </span>
+        </dd>
+      ) : (
+        <Tempo tempo={tempo} />
+      )}
+      <dd className="mt-2 flex items-start gap-2.5 text-lg font-bold">
+        <span aria-hidden="true" className={cn(MARCADOR, "border-2 border-primary")} />
+        <span className="min-w-0">
+          <span className="sr-only">{meta.rotuloSr}</span>
+          <span aria-hidden="true">
+            {meta.meses !== null && meta.meses > 0 && meta.mes !== null ? (
+              <>
+                {meta.nome} em <span className="tnum">{formatMeses(meta.meses)}</span>
+                <span className="block text-base font-normal text-ink-2">até {meta.mes}</span>
+              </>
+            ) : (
+              <>
+                {meta.nome} <span className="font-normal text-ink-2">{meta.texto}</span>
+              </>
+            )}
+          </span>
+        </span>
+      </dd>
+    </>
   );
 }
 

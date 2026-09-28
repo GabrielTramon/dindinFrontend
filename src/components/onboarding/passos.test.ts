@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { erroNaLinha, PASSOS, type PassoId } from "./passos";
+import { erroNaLinha, faltaNosBeneficios, PASSOS, problemaDosBeneficios, type PassoId } from "./passos";
 import type { Respostas } from "./respostas";
 
 const passo = (id: PassoId) => {
@@ -21,6 +21,64 @@ describe("passo da renda no modo bruto", () => {
     const r: Respostas = { rendaInformada: "bruta", salarioBruto: 5000, rendaMensal: 4100 };
     expect(renda.valido(r)).toBe(true);
     expect(renda.erro?.(r)).toBeUndefined();
+  });
+});
+
+describe("vales na pergunta da renda", () => {
+  const renda = passo("rendaMensal");
+  const base: Respostas = { rendaMensal: 3000 };
+
+  it("são opcionais: sem nenhum, a pergunta é a de sempre", () => {
+    expect(renda.valido(base)).toBe(true);
+    expect(renda.valido({ ...base, beneficios: [] })).toBe(true);
+  });
+
+  it("linha sem valor segura o Continuar e diz o que falta, sem virar erro do salário", () => {
+    const r: Respostas = { ...base, beneficios: [{ tipo: "refeicao" }] };
+    expect(renda.valido(r)).toBe(false);
+    expect(renda.erro?.(r)).toBeUndefined();
+    expect(problemaDosBeneficios(r)).toBeUndefined();
+    expect(faltaNosBeneficios(r)).toBe("Falta dizer quanto vem de Vale-refeição.");
+    expect(faltaNosBeneficios({ ...base, beneficios: [{ tipo: "outro", nome: "" }] })).toBe(
+      "Falta o nome e o valor do outro benefício.",
+    );
+  });
+
+  it("'outro' com valor e sem nome é erro e aponta o campo do nome", () => {
+    const r: Respostas = { ...base, beneficios: [{ tipo: "refeicao", valor: 600 }, { tipo: "outro", nome: " ", valor: 100 }] };
+    expect(renda.valido(r)).toBe(false);
+    const problema = problemaDosBeneficios(r);
+    expect(problema?.mensagem).toBe("Outro benefício: dê um nome pra esse benefício");
+    expect(erroNaLinha(problema?.caminho)).toEqual({ indice: 1, campo: "nome" });
+  });
+
+  it("vale com valor 0 é erro no campo do valor", () => {
+    const problema = problemaDosBeneficios({ ...base, beneficios: [{ tipo: "transporte", valor: 0 }] });
+    expect(problema?.mensagem).toBe("Vale-transporte: o valor precisa ser maior que zero");
+    expect(erroNaLinha(problema?.caminho)).toEqual({ indice: 0, campo: "valor" });
+  });
+
+  it("vales completos liberam o Continuar", () => {
+    const r: Respostas = { ...base, beneficios: [{ tipo: "refeicao", valor: 600 }, { tipo: "outro", nome: "Creche", valor: 200 }] };
+    expect(renda.valido(r)).toBe(true);
+  });
+});
+
+describe("13º no passo do tipo de renda", () => {
+  const tipo = passo("tipoRenda");
+
+  it("CLT e PJ precisam responder; o Continuar espera e diz o que falta", () => {
+    for (const tipoRenda of ["clt", "pj"] as const) {
+      expect(tipo.valido({ tipoRenda })).toBe(false);
+      expect(tipo.falta?.({ tipoRenda })).toBe("Falta dizer se o 13º entra no plano.");
+      expect(tipo.valido({ tipoRenda, decimoTerceiro: true })).toBe(true);
+      expect(tipo.valido({ tipoRenda, decimoTerceiro: false })).toBe(true);
+    }
+  });
+
+  it("informal não é perguntado", () => {
+    expect(tipo.valido({ tipoRenda: "informal" })).toBe(true);
+    expect(tipo.falta?.({ tipoRenda: "informal" })).toBeUndefined();
   });
 });
 

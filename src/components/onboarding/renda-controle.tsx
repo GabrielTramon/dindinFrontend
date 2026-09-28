@@ -2,11 +2,13 @@ import { useState, type ReactNode } from "react";
 import { TABELAS_FOLHA, type RendaInformada } from "@/domain";
 import { CountUp } from "@/components/motion/count-up";
 import { formatBRL } from "@/lib/format";
+import { BeneficiosEditor } from "./beneficios-editor";
 import { ChipsValor } from "./chips";
 import { MoneyInput } from "./money-input";
 import { NumberInput } from "./number-input";
 import type { ControleIds } from "./passo-controle";
-import { holeriteDasRespostas, type Respostas } from "./respostas";
+import { erroNaLinha, faltaNosBeneficios, problemaDosBeneficios } from "./passos";
+import { holeriteDasRespostas, type BeneficioRascunho, type Respostas } from "./respostas";
 import { ValueSlider } from "./value-slider";
 
 /*
@@ -21,6 +23,10 @@ import { ValueSlider } from "./value-slider";
   Bruto vira líquido na hora, e `rendaMensal` é atualizada junto: é ela que o
   motor usa e que o passo valida. O bloco da estimativa assenta ao aparecer e o
   líquido conta até o valor.
+
+  Embaixo, os vales (VR, VA, VT…). O VT de quem informou o bruto mexe no
+  líquido (o desconto de até 6%), então mudar os vales refaz a conta do bruto.
+  As mensagens dos vales aparecem no bloco deles, não embaixo do salário.
 */
 
 const BRL: Intl.NumberFormatOptions = { style: "currency", currency: "BRL", maximumFractionDigits: 0 };
@@ -53,15 +59,27 @@ export function RendaControle({ respostas, onChange, ids, describedBy, invalid, 
   const holerite = holeriteDasRespostas(respostas);
 
   /** no modo bruto, rendaMensal acompanha o líquido calculado (a mesma conta de montarPerfil) */
-  const mudarBruto = (salarioBruto: number | undefined, dependentes = respostas.dependentes) => {
-    const novo = holeriteDasRespostas({ ...respostas, rendaInformada: "bruta", salarioBruto, dependentes });
+  const mudarBruto = (
+    salarioBruto: number | undefined,
+    dependentes = respostas.dependentes,
+    beneficios = respostas.beneficios,
+  ) => {
+    const novo = holeriteDasRespostas({ ...respostas, rendaInformada: "bruta", salarioBruto, dependentes, beneficios });
     onChange({
       salarioBruto,
       dependentes,
+      beneficios,
       rendaMensal: novo ? novo.liquido : pj ? salarioBruto : undefined,
       competenciaTabela: novo ? TABELAS_FOLHA.competencia : undefined,
     });
   };
+
+  // o VT mexe no líquido de quem informou o bruto; no resto, o vale não muda a renda
+  const mudarBeneficios = (beneficios: BeneficioRascunho[]) =>
+    ehBruto ? mudarBruto(respostas.salarioBruto, respostas.dependentes, beneficios) : onChange({ beneficios });
+
+  const problemaVale = problemaDosBeneficios(respostas);
+  const faltaVale = problemaVale ? undefined : faltaNosBeneficios(respostas);
 
   const trocarModo = (valor: RendaInformada) => {
     if (valor === informada) return;
@@ -148,6 +166,8 @@ export function RendaControle({ respostas, onChange, ids, describedBy, invalid, 
               <p className="tnum text-sm text-ink-2">
                 INSS {formatBRL(holerite.inss, { centavos: true })} ·{" "}
                 {holerite.irrf > 0 ? `IRRF ${formatBRL(holerite.irrf, { centavos: true })}` : "IRRF isento"}
+                {holerite.valeTransporte !== undefined &&
+                  ` · VT ${formatBRL(holerite.valeTransporte, { centavos: true })}`}
               </p>
             )}
             <p className="text-sm text-ink-2">
@@ -208,6 +228,16 @@ export function RendaControle({ respostas, onChange, ids, describedBy, invalid, 
           />
         </>
       )}
+
+      <BeneficiosEditor
+        beneficios={respostas.beneficios}
+        onChange={mudarBeneficios}
+        erro={problemaVale?.mensagem}
+        erroEm={erroNaLinha(problemaVale?.caminho)}
+        falta={faltaVale}
+        descontoVT={holerite?.valeTransporte}
+        idMensagem="beneficios-mensagem"
+      />
     </div>
   );
 }

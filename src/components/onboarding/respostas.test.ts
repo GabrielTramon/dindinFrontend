@@ -90,6 +90,65 @@ describe("salário bruto de PJ", () => {
   });
 });
 
+describe("vales", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("passam pela allow-list: tipo desconhecido sai, valor em branco fica (rascunho)", () => {
+    guardar({
+      [STORAGE_KEYS.rascunho]: {
+        rendaMensal: 3000,
+        beneficios: [{ tipo: "refeicao", valor: 600, extra: 1 }, { tipo: "gympass", valor: 100 }, { tipo: "outro", nome: "Creche" }, "lixo"],
+      },
+    });
+    expect(lerRespostasSalvas().respostas.beneficios).toEqual([
+      { tipo: "refeicao", nome: undefined, valor: 600 },
+      { tipo: "outro", nome: "Creche", valor: undefined },
+    ]);
+  });
+
+  it("o VT de quem informou o bruto sai do líquido (até 6%); sem VT, o líquido de sempre", () => {
+    const clt = { rendaInformada: "bruta", salarioBruto: 3000, tipoRenda: "clt" } as const;
+    const sem = holeriteDasRespostas(clt)!;
+    const com = holeriteDasRespostas({ ...clt, beneficios: [{ tipo: "transporte", valor: 400 }] })!;
+    expect(com.valeTransporte).toBe(180);
+    expect(com.liquido).toBeCloseTo(sem.liquido - 180, 2);
+    expect(montarPerfil({ ...clt, beneficios: [{ tipo: "transporte", valor: 400 }] }).rendaMensal).toBe(com.liquido);
+    // VR não mexe no holerite
+    expect(holeriteDasRespostas({ ...clt, beneficios: [{ tipo: "refeicao", valor: 400 }] })).toEqual(sem);
+  });
+
+  it("no perfil: o nome só fica no 'outro', aparado; lista vazia vira ausente", () => {
+    const perfil = montarPerfil({
+      rendaMensal: 3000,
+      beneficios: [
+        { tipo: "refeicao", nome: "lixo", valor: 600 },
+        { tipo: "outro", nome: "  Creche ", valor: 200 },
+      ],
+    });
+    expect(perfil.beneficios).toEqual([
+      { tipo: "refeicao", nome: undefined, valor: 600 },
+      { tipo: "outro", nome: "Creche", valor: 200 },
+    ]);
+    expect(montarPerfil({ rendaMensal: 3000, beneficios: [] }).beneficios).toBeUndefined();
+  });
+});
+
+describe("13º", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("passa pela allow-list só como booleano", () => {
+    guardar({ [STORAGE_KEYS.rascunho]: { tipoRenda: "clt", decimoTerceiro: true } });
+    expect(lerRespostasSalvas().respostas.decimoTerceiro).toBe(true);
+    guardar({ [STORAGE_KEYS.rascunho]: { tipoRenda: "clt", decimoTerceiro: "sim" } });
+    expect(lerRespostasSalvas().respostas.decimoTerceiro).toBeUndefined();
+  });
+
+  it("informal sai do perfil sem a resposta (um 'sim' de quando era CLT não vale)", () => {
+    expect(montarPerfil({ tipoRenda: "clt", decimoTerceiro: true }).decimoTerceiro).toBe(true);
+    expect(montarPerfil({ tipoRenda: "informal", decimoTerceiro: true }).decimoTerceiro).toBeUndefined();
+  });
+});
+
 describe("potes do que já está guardado pra meta, lidos do armazenamento", () => {
   afterEach(() => vi.unstubAllGlobals());
 

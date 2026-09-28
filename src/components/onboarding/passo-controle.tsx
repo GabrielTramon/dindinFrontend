@@ -11,6 +11,7 @@ import {
 } from "@/domain";
 import { cn } from "@/lib/utils";
 import { ChipsValor } from "./chips";
+import { DecimoTerceiroPergunta } from "./decimo-terceiro-pergunta";
 import { DividasEditor } from "./dividas-editor";
 import { GastosEditor } from "./gastos-editor";
 import { GuardadoNaMetaPergunta } from "./guardado-na-meta";
@@ -55,10 +56,13 @@ function lerIdade(texto: string): number | undefined {
  * de holeriteDasRespostas e montarPerfil); voltar pra CLT recalcula o líquido.
  */
 function rendaParaTipo(tipoRenda: TipoRenda, r: Respostas): Partial<Respostas> {
-  if (r.rendaInformada !== "bruta" || r.salarioBruto === undefined) return { tipoRenda };
+  // o 13º é outra pergunta pra CLT ("usar no plano?") e pra PJ ("o contrato paga?"): trocou o tipo, pergunta de novo
+  const decimo = tipoRenda === r.tipoRenda ? {} : { decimoTerceiro: undefined };
+  if (r.rendaInformada !== "bruta" || r.salarioBruto === undefined) return { tipoRenda, ...decimo };
   const holerite = holeriteDasRespostas({ ...r, tipoRenda });
   return {
     tipoRenda,
+    ...decimo,
     rendaMensal: holerite ? holerite.liquido : r.salarioBruto,
     competenciaTabela: holerite ? TABELAS_FOLHA.competencia : undefined,
   };
@@ -136,7 +140,10 @@ export function PassoControle({ passo, respostas, onChange, erro, ids, described
             onChange={(tipoRenda) => onChange(rendaParaTipo(tipoRenda, respostas))}
             describedBy={describedBy}
           />
-          <LinhaErro id={ids.erro} erro={erro} />
+          {(respostas.tipoRenda === "clt" || respostas.tipoRenda === "pj") && (
+            <DecimoTerceiroPergunta respostas={respostas} onChange={onChange} describedBy={ids.erro} />
+          )}
+          <LinhaErro id={ids.erro} erro={erro} falta={falta} />
           {/* região live sempre no DOM: o aviso aparece ao escolher PJ e precisa ser anunciado */}
           <div aria-live="polite">
             {respostas.tipoRenda === "pj" && respostas.rendaInformada === "bruta" && (
@@ -222,6 +229,7 @@ export function PassoControle({ passo, respostas, onChange, erro, ids, described
             describedBy={describedBy}
             idErro={ids.erro}
             erroEm={erroNaLinha(caminho)}
+            beneficios={respostas.beneficios}
           />
           <LinhaErro id={ids.erro} erro={erro} falta={falta} />
         </>

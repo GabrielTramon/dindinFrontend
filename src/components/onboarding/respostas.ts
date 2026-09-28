@@ -8,16 +8,20 @@ import {
   NOME_GUARDADO_PADRAO,
   MORADIAS_SEM_CUSTO,
   RENDAS_INFORMADAS,
+  MAX_BENEFICIOS,
   RITMOS,
   SLUGS_CATEGORIA,
   SLUG_OUTRO,
   TABELAS_FOLHA,
+  TIPOS_BENEFICIO,
   TIPOS_DIVIDA,
   TIPOS_RENDA,
+  valorDoBeneficio,
   type GuardadoNaMeta,
   type Holerite,
   type Moradia,
   type PerfilInput,
+  type TipoBeneficio,
   type TipoDivida,
 } from "@/domain";
 import { readJSON, STORAGE_KEYS } from "@/lib/storage";
@@ -42,13 +46,22 @@ export interface GastoRascunho {
   valor?: number;
 }
 
+/** Um vale ainda sendo preenchido: o valor (e o nome, no "outro") podem faltar. */
+export interface BeneficioRascunho {
+  tipo: TipoBeneficio;
+  nome?: string;
+  valor?: number;
+}
+
 /**
  * Respostas parciais. `dividas` e `gastosFixos` têm três estados cada:
- * undefined (não respondeu), [] ("não tenho") e lista preenchida.
+ * undefined (não respondeu), [] ("não tenho") e lista preenchida. `beneficios`
+ * é opcional de verdade: undefined e [] dizem a mesma coisa.
  */
-export type Respostas = Omit<Partial<PerfilInput>, "dividas" | "gastosFixos"> & {
+export type Respostas = Omit<Partial<PerfilInput>, "dividas" | "gastosFixos" | "beneficios"> & {
   dividas?: DividaRascunho[];
   gastosFixos?: GastoRascunho[];
+  beneficios?: BeneficioRascunho[];
 };
 
 export function moradiaSemCusto(moradia: Moradia | undefined): boolean {
@@ -83,6 +96,19 @@ function gastosDe(v: unknown): GastoRascunho[] | undefined {
     })
     // categoria desconhecida: catálogo mudou desde que a pessoa respondeu — a linha some
     .filter((g): g is GastoRascunho => g !== null);
+}
+
+function beneficiosDe(v: unknown): BeneficioRascunho[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  return v
+    .slice(0, MAX_BENEFICIOS)
+    .map((item: unknown): BeneficioRascunho | null => {
+      const b = typeof item === "object" && item !== null ? (item as Record<string, unknown>) : {};
+      const tipo = entre(TIPOS_BENEFICIO, b.tipo);
+      const nome = typeof b.nome === "string" ? b.nome.slice(0, 40) : undefined;
+      return tipo === undefined ? null : { tipo, nome, valor: numero(b.valor) };
+    })
+    .filter((b): b is BeneficioRascunho => b !== null);
 }
 
 /** Os potes do que já está guardado pra meta; undefined = não respondeu, [] = "não". */
@@ -133,6 +159,8 @@ export function sanearRespostas(bruto: unknown): Respostas {
     salarioBruto: numero(o.salarioBruto),
     dependentes: numero(o.dependentes),
     competenciaTabela: typeof o.competenciaTabela === "string" ? o.competenciaTabela : undefined,
+    beneficios: beneficiosDe(o.beneficios),
+    decimoTerceiro: typeof o.decimoTerceiro === "boolean" ? o.decimoTerceiro : undefined,
     ritmo: entre(RITMOS, o.ritmo),
     aporteEscolhido: numero(o.aporteEscolhido),
     meta: metaDe(o.meta),
@@ -182,11 +210,16 @@ export function lerRespostasSalvas(): RespostasSalvas {
  * pode estar entre eles com um salário bruto de verdade.
  *
  * É o mesmo cálculo da prévia do onboarding e o que preenche `rendaMensal`, pra
- * tela e plano nunca discordarem de um centavo.
+ * tela e plano nunca discordarem de um centavo. Com vale-transporte, o
+ * desconto de até 6% sai daqui (o vale paga o transporte da lista).
  */
 export function holeriteDasRespostas(r: Respostas): Holerite | null {
   if (r.rendaInformada !== "bruta" || r.salarioBruto === undefined || r.tipoRenda === "pj") return null;
-  return brutoParaLiquido(r.salarioBruto, { dependentes: r.dependentes });
+  return brutoParaLiquido(
+    r.salarioBruto,
+    { dependentes: r.dependentes },
+    { valeTransporte: valorDoBeneficio(r.beneficios, "transporte") },
+  );
 }
 
 /**
@@ -211,6 +244,13 @@ export function montarPerfil(r: Respostas): Respostas {
     // qual tabela gerou esse líquido: em janeiro dá pra avisar que a conta mudou
     competenciaTabela: holerite ? TABELAS_FOLHA.competencia : brutoDePj ? undefined : r.competenciaTabela,
     custoMoradia: moradiaSemCusto(r.moradia) ? 0 : r.custoMoradia,
+    // informal não é perguntado sobre o 13º: um "sim" de quando era CLT não vale mais
+    decimoTerceiro: r.tipoRenda === "informal" ? undefined : r.decimoTerceiro,
+    // lista vazia é o mesmo que não ter respondido: a chave some, e o plano de quem não tem vale não muda
+    beneficios:
+      r.beneficios && r.beneficios.length > 0
+        ? r.beneficios.map((b) => ({ ...b, nome: b.tipo === "outro" ? b.nome?.trim() || undefined : undefined }))
+        : undefined,
     gastosFixos: r.gastosFixos?.map((g) => ({
       ...g,
       nome: g.categoria === SLUG_OUTRO ? g.nome?.trim() || undefined : undefined,

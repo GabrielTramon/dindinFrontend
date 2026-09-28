@@ -305,7 +305,7 @@ export function Divisor({ plano, perfil, uso, ritmo }: DivisorProps) {
         {textosDivisor.titulo}
       </h2>
       <p className="mt-2 font-bold text-pretty tnum">
-        {textosDivisor.equacao(plano.resumo.renda, plano.resumo.custoTotal, base)}
+        {textosDivisor.equacao(plano.resumo.renda, plano.resumo.custoTotal, base, plano.resumo.beneficios)}
       </p>
       <p className="mt-1 text-sm text-ink-2">{textosDivisor.ajuda}</p>
 

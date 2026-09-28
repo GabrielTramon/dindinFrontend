@@ -101,7 +101,7 @@ export function DetalhesPlano({ plano, resposta, grupos, metaNoCaminho }: Detalh
 
         <Secao id="numeros" titulo="Seu mês em números">
           <dl className="grid grid-cols-3 gap-3">
-            <Numero rotulo="Entra" valor={plano.resumo.renda} />
+            <Numero rotulo="Entra" valor={plano.resumo.renda + plano.resumo.beneficios} />
             <Numero rotulo="Sai" valor={plano.resumo.custoTotal} />
             <Numero
               rotulo={plano.resumo.excedente < 0 ? "Falta" : "Sobra"}
@@ -109,7 +109,13 @@ export function DetalhesPlano({ plano, resposta, grupos, metaNoCaminho }: Detalh
               destaque={plano.resumo.excedente > 0 ? "primary" : "warn"}
             />
           </dl>
+          {plano.resumo.beneficios > 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">{textos.vales.notaEntra(plano.resumo.beneficios)}</p>
+          )}
           <p className="mt-2 text-xs text-muted-foreground">Sai = moradia + fixos + parcelas</p>
+          {plano.beneficios.semUso >= 1 && (
+            <p className="mt-3 text-sm text-ink-2">{textos.vales.semUso(plano.beneficios.semUso)}</p>
+          )}
         </Secao>
 
         {resposta.modo === "plano" && plano.alocacoes.length > 0 && (
@@ -469,6 +475,7 @@ function MetaDetalhe({
             aporteMensal: projecao.aporteMensal,
             inicio,
             temPotes: marcados.length > 0,
+            decimo: metaNoCaminho.decimoPorAno,
           })}
         </p>
       )}
@@ -481,7 +488,13 @@ function MetaDetalhe({
       )}
       {prazo !== 0 && (projecao.aporteMensal > 0 || projecao.jaGuardado > 0) && (
         <p className="text-sm text-ink-2">
-          {textos.metaDetalhe.entraNaConta(marcados, planoEntra, !degrauDeMetas, projecao.jaGuardado > 0)}
+          {textos.metaDetalhe.entraNaConta(
+            marcados,
+            planoEntra,
+            !degrauDeMetas,
+            projecao.jaGuardado > 0,
+            (metaNoCaminho.decimoPorAno ?? 0) > 0,
+          )}
         </p>
       )}
       <p className="text-xs text-muted-foreground">

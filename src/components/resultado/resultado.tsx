@@ -20,6 +20,7 @@ import { JaGuardado } from "./ja-guardado";
 import { MetaCard } from "./meta-card";
 import { EstadoVazio } from "./estado-vazio";
 import { Resposta, RespostaDeCorte } from "./resposta";
+import { SimuladorTempo } from "./simulador-tempo";
 import { Skeleton } from "./skeleton";
 import { usarOrganizacao } from "./usar-organizacao";
 import { usarEscolhaDeRitmo } from "./usar-ritmo";
@@ -90,9 +91,10 @@ function PlanoCompleto({ perfil }: { perfil: Perfil }) {
     1.173) já sai do plano no teto, então o cartão do topo e o divisor leem o
     mesmo aporte.
   */
-  const plano = useMemo(() => gerarPlano(perfil), [perfil]);
+  // com a data, o 13º (quando a pessoa usa) entra nos prazos
+  const plano = useMemo(() => gerarPlano(perfil, { hoje }), [perfil, hoje]);
   const uso = usarOrganizacao(plano);
-  const ritmo = usarEscolhaDeRitmo(perfil, plano, uso);
+  const ritmo = usarEscolhaDeRitmo(perfil, plano, uso, hoje);
   const { grupos } = uso;
 
   /*
@@ -112,8 +114,8 @@ function PlanoCompleto({ perfil }: { perfil: Perfil }) {
     () => (perfil.meta && caminho.meta ? cartaoDaMeta(perfil.meta, caminho.meta, hoje) : null),
     [perfil.meta, caminho.meta, hoje],
   );
-  // o cartão só fala da meta no degrau 4
-  const projecaoMeta = plano.degrau === 4 ? (caminho.meta?.projecao ?? null) : null;
+  // no degrau 4 é o tempo do cartão; antes, a segunda linha dele ("Liberdade financeira em 4 meses")
+  const projecaoMeta = caminho.meta?.projecao ?? null;
 
   const resposta = useMemo(
     () =>
@@ -165,6 +167,15 @@ function PlanoCompleto({ perfil }: { perfil: Perfil }) {
         {resposta.modo === "plano" && perfil.meta && perfil.guardado > 0 && (
           <div className="enter-up" style={staggerStyle(3)}>
             <JaGuardado plano={plano} perfil={perfil} />
+          </div>
+        )}
+        {resposta.modo === "plano" && (
+          <div className="enter-up" style={staggerStyle(3)}>
+            <SimuladorTempo
+              plano={plano}
+              valorDoPlano={resposta.valorMes}
+              taxaDoGuardar={grupos.find((g) => g.doSistema)?.rendimentoMensal}
+            />
           </div>
         )}
         <div className="enter-up space-y-10 sm:space-y-12" style={staggerStyle(3)}>
