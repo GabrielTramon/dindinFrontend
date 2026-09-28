@@ -15,6 +15,7 @@ import { BarraFinal } from "./barra-final";
 import { Caminho } from "./caminho";
 import { DetalhesPlano } from "./detalhes-plano";
 import { Divisor } from "./divisor";
+import { JaGuardado } from "./ja-guardado";
 import { EstadoVazio } from "./estado-vazio";
 import { Resposta, RespostaDeCorte } from "./resposta";
 import { Skeleton } from "./skeleton";
@@ -149,6 +150,11 @@ function PlanoCompleto({ perfil }: { perfil: Perfil }) {
             <p className="text-sm text-ink-2">{resposta.semDivisor}</p>
           )}
         </div>
+        {resposta.modo === "plano" && perfil.meta && perfil.guardado > 0 && (
+          <div className="enter-up" style={staggerStyle(3)}>
+            <JaGuardado plano={plano} perfil={perfil} />
+          </div>
+        )}
         <div className="enter-up space-y-10 sm:space-y-12" style={staggerStyle(3)}>
           <DetalhesPlano plano={plano} resposta={resposta} grupos={grupos} metaNoCaminho={caminho.meta} />
           <BarraFinal entradaPdf={entradaPdf} />

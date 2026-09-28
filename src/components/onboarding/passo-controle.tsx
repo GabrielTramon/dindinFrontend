@@ -1,16 +1,26 @@
-import { useState } from "react";
-import { TABELAS_FOLHA, type Moradia, type TipoRenda } from "@/domain";
+import { useMemo, useState } from "react";
+import { novoId } from "@/components/resultado/pote-comum";
+import {
+  gerarPlano,
+  opcoesGuardadoNaMeta,
+  rotuloMeta,
+  TABELAS_FOLHA,
+  validarPerfil,
+  type Moradia,
+  type TipoRenda,
+} from "@/domain";
 import { cn } from "@/lib/utils";
 import { ChipsValor } from "./chips";
 import { DividasEditor } from "./dividas-editor";
 import { GastosEditor } from "./gastos-editor";
+import { GuardadoNaMetaPergunta } from "./guardado-na-meta";
 import { MetaEditor } from "./meta-editor";
 import { MoneyInput } from "./money-input";
 import { NumberInput } from "./number-input";
 import { OptionCards } from "./option-cards";
 import { erroNaLinha, textoDoPasso, type Passo } from "./passos";
 import { RendaControle } from "./renda-controle";
-import { holeriteDasRespostas, moradiaSemCusto, type Respostas } from "./respostas";
+import { holeriteDasRespostas, montarPerfil, moradiaSemCusto, type Respostas } from "./respostas";
 import { ValueSlider } from "./value-slider";
 
 /*
@@ -110,7 +120,8 @@ export function PassoControle({ passo, respostas, onChange, erro, ids, described
             // erro sem caminho (ex.: não deu pra salvar no fim) não é culpa de campo nenhum
             erroEm={caminho?.[0] === "nome" ? "nome" : caminho?.[0] === "valorAlvo" ? "valorAlvo" : undefined}
           />
-          <LinhaErro id={ids.erro} erro={erro} />
+          <GuardadoNaMetaDoOnboarding respostas={respostas} onChange={onChange} />
+          <LinhaErro id={ids.erro} erro={erro} falta={falta} />
         </>
       );
 
@@ -285,6 +296,47 @@ function CampoValor({ pergunta, valores, value, onChange, erro, ids, describedBy
           onChange(n);
           setFlash((f) => f + 1);
         }}
+      />
+    </div>
+  );
+}
+
+/**
+ * A pergunta "o que você já tem guardado entra na meta?", logo abaixo do valor
+ * da meta. Só aparece pra quem tem algo guardado e já disse quanto a meta custa.
+ * A reserva sai de um plano montado com as respostas de agora (todas as
+ * perguntas de antes já foram respondidas quando se chega aqui).
+ */
+function GuardadoNaMetaDoOnboarding({
+  respostas,
+  onChange,
+}: {
+  respostas: Respostas;
+  onChange: (patch: Partial<Respostas>) => void;
+}) {
+  const meta = respostas.meta;
+  const opcoes = useMemo(() => {
+    if (!((respostas.guardado ?? 0) > 0)) return null;
+    // sem a meta: a reserva não depende dela, e uma meta pela metade reprovaria o perfil
+    const r = validarPerfil(montarPerfil({ ...respostas, meta: undefined }));
+    return r.ok ? opcoesGuardadoNaMeta(gerarPlano(r.perfil)) : null;
+  }, [respostas]);
+  if (!opcoes || !meta || !(meta.valorAlvo > 0)) return null;
+  const nomeMeta = meta.tipo === "outro" && !meta.nome?.trim() ? "sua meta" : rotuloMeta(meta);
+  return (
+    <div className="enter-up mt-2 border-t pt-6">
+      <GuardadoNaMetaPergunta
+        id="meta-guardado"
+        nomeMeta={nomeMeta}
+        opcoes={opcoes}
+        guardados={meta.guardados}
+        onChange={(guardados) => {
+          const novo = { ...meta };
+          if (guardados === undefined) delete novo.guardados;
+          else novo.guardados = guardados;
+          onChange({ meta: novo });
+        }}
+        novoId={novoId}
       />
     </div>
   );

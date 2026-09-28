@@ -112,3 +112,31 @@ describe("passo da meta", () => {
     expect(meta.campoDoErro?.(r)).toEqual(["nome"]);
   });
 });
+
+/*
+  Quem tem algo guardado responde se isso entra na meta: sem resposta o
+  Continuar não libera e a linha diz o que falta. [] ("não") é resposta.
+*/
+describe("passo da meta: o que já está guardado entra nela?", () => {
+  const meta = passo("meta");
+  const casa = { tipo: "casa" as const, valorAlvo: 33000 };
+
+  it("com guardado e sem resposta: não libera, e diz o que falta", () => {
+    const r: Respostas = { guardado: 20000, meta: casa };
+    expect(meta.valido(r)).toBe(false);
+    expect(meta.erro?.(r)).toBeUndefined();
+    expect(meta.falta?.(r)).toBe("Falta dizer se o que você já tem guardado entra nessa meta.");
+  });
+
+  it("'não' ([]) e um valor são respostas", () => {
+    expect(meta.valido({ guardado: 20000, meta: { ...casa, guardados: [] } })).toBe(true);
+    expect(
+      meta.valido({ guardado: 20000, meta: { ...casa, guardados: [{ id: "a", nome: "Já guardado", valor: 11600, rendimentoMensal: 0.008 }] } }),
+    ).toBe(true);
+  });
+
+  it("sem nada guardado, não há pergunta", () => {
+    expect(meta.valido({ guardado: 0, meta: casa })).toBe(true);
+    expect(meta.falta?.({ guardado: 0, meta: casa })).toBeUndefined();
+  });
+});

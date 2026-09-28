@@ -291,7 +291,7 @@ function useUltimo<T>(valor: T): { readonly current: T } {
   return ref;
 }
 
-interface RendimentoProps {
+export interface RendimentoProps {
   grupo: Grupo;
   nome: string;
   nomeMeta: string | null;
@@ -305,7 +305,7 @@ interface RendimentoProps {
  * metas): é quando quem digitou acharia que a conta está quebrada. Quando
  * mexe, quem fala é o cartão do topo.
  */
-function Rendimento({ grupo, nome, nomeMeta, degrauDeMetas, onRendimento }: RendimentoProps) {
+export function Rendimento({ grupo, nome, nomeMeta, degrauDeMetas, onRendimento }: RendimentoProps) {
   const [editando, setEditando] = useState(false);
   const taxa = grupo.rendimentoMensal;
   const rende = taxa !== undefined && taxa > 0;

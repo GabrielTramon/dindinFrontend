@@ -143,6 +143,14 @@ function faltaNasDividas(r: Respostas): string | undefined {
     : `Falta dizer quanto você deve na dívida ${numero}.`;
 }
 
+/**
+ * Quem tem algo guardado responde se isso entra na meta: `guardados`
+ * undefined é "não respondeu" ([] é "não"). Sem nada guardado, não há pergunta.
+ */
+export function faltaOGuardadoNaMeta(r: Respostas): boolean {
+  return (r.guardado ?? 0) > 0 && r.meta?.valorAlvo !== undefined && r.meta.guardados === undefined;
+}
+
 function problemaDaMeta(r: Respostas): Problema | undefined {
   // sem valor ainda é preenchimento em andamento: o Continuar só não libera
   if (r.meta === undefined || r.meta.valorAlvo === undefined) return undefined;
@@ -227,9 +235,11 @@ export const PASSOS: readonly Passo[] = [
     ajuda: "Uma só, a que mais importa. Dá pra mudar depois.",
     // `campo("meta")` não serve: o campo é opcional no schema, e schema.safeParse(undefined)
     // passa — o passo ficaria "respondido" vazio e daria pra pular a pergunta inteira.
-    valido: (r) => r.meta !== undefined && metaSchema.safeParse(r.meta).success,
+    valido: (r) => r.meta !== undefined && metaSchema.safeParse(r.meta).success && !faltaOGuardadoNaMeta(r),
     erro: (r) => problemaDaMeta(r)?.mensagem,
     campoDoErro: (r) => problemaDaMeta(r)?.caminho,
+    falta: (r) =>
+      faltaOGuardadoNaMeta(r) ? "Falta dizer se o que você já tem guardado entra nessa meta." : undefined,
   },
 ];
 

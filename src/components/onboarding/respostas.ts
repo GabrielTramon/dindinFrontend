@@ -2,8 +2,10 @@ import {
   brutoParaLiquido,
   MAX_DIVIDAS,
   MAX_GASTOS_FIXOS,
+  MAX_GUARDADOS_NA_META,
   METAS_TIPO,
   MORADIAS,
+  NOME_GUARDADO_PADRAO,
   MORADIAS_SEM_CUSTO,
   RENDAS_INFORMADAS,
   RITMOS,
@@ -12,6 +14,7 @@ import {
   TABELAS_FOLHA,
   TIPOS_DIVIDA,
   TIPOS_RENDA,
+  type GuardadoNaMeta,
   type Holerite,
   type Moradia,
   type PerfilInput,
@@ -82,6 +85,26 @@ function gastosDe(v: unknown): GastoRascunho[] | undefined {
     .filter((g): g is GastoRascunho => g !== null);
 }
 
+/** Os potes do que já está guardado pra meta; undefined = não respondeu, [] = "não". */
+function guardadosDe(v: unknown): GuardadoNaMeta[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  return v
+    .slice(0, MAX_GUARDADOS_NA_META)
+    .map((item: unknown): GuardadoNaMeta | null => {
+      const g = typeof item === "object" && item !== null ? (item as Record<string, unknown>) : {};
+      const valor = numero(g.valor);
+      if (typeof g.id !== "string" || g.id.length === 0 || valor === undefined) return null;
+      const rendimentoMensal = numero(g.rendimentoMensal);
+      return {
+        id: g.id.slice(0, 64),
+        nome: typeof g.nome === "string" ? g.nome.slice(0, 40) : NOME_GUARDADO_PADRAO,
+        valor: Math.max(0, valor),
+        ...(rendimentoMensal !== undefined ? { rendimentoMensal } : {}),
+      };
+    })
+    .filter((g): g is GuardadoNaMeta => g !== null);
+}
+
 function metaDe(v: unknown): PerfilInput["meta"] | undefined {
   if (typeof v !== "object" || v === null) return undefined;
   const m = v as Record<string, unknown>;
@@ -89,8 +112,9 @@ function metaDe(v: unknown): PerfilInput["meta"] | undefined {
   if (tipo === undefined) return undefined;
   const nome = typeof m.nome === "string" ? m.nome.slice(0, 40) : undefined;
   const valorAlvo = numero(m.valorAlvo);
+  const guardados = guardadosDe(m.guardados);
   // valorAlvo ainda não respondido é estado normal do rascunho; o schema cobra no fim
-  return { tipo, nome, valorAlvo: valorAlvo as number };
+  return { tipo, nome, valorAlvo: valorAlvo as number, ...(guardados !== undefined ? { guardados } : {}) };
 }
 
 /**

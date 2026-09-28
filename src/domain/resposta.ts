@@ -1,5 +1,6 @@
 import { MARGEM_MINIMA_CORTE, MAX_RENDIMENTO_MENSAL } from "./config";
 import { outrosPotesQueCabem, pctDe, pctDoGuardar, repartirEmReaisInteiros, type SimulacaoRitmo } from "./divisor";
+import { metaComGuardadoEfetivo } from "./guardado-meta";
 import { mesEstimado } from "./marcos";
 import { rotuloMeta } from "./metas-catalogo";
 import { projetarMeta, type Grupo, type ProjecaoMeta } from "./organizacao";
@@ -69,6 +70,15 @@ export type TempoResposta =
       /** "Parado" */
       texto: string;
       /** "Guardando 0%, o plano não anda. Escolha um ritmo pra voltar a andar." */
+      frase: string;
+      rotuloSr: string;
+    }
+  | {
+      /** o que já estava guardado pra meta paga ela sozinho */
+      tipo: "pronta";
+      /** "Meta já garantida" */
+      texto: string;
+      /** o que isso quer dizer e o que fazer agora */
       frase: string;
       rotuloSr: string;
     };
@@ -205,9 +215,14 @@ function objetivoDoPlano(plano: Plano, meta: Meta | undefined): string {
  * ele a pessoa lê "R$ 420 por 6 anos" e não sabe pra juntar quanto.
  */
 function alvoDoPlano(plano: Plano, meta: Meta | undefined): AlvoResposta | undefined {
-  const com = (rotulo: string, valor: number, falta?: number): AlvoResposta | undefined => {
+  const com = (rotulo: string, valor: number, falta?: number, jaTem?: number): AlvoResposta | undefined => {
     if (!(valor > 0)) return undefined;
-    const detalhe = falta !== undefined && falta > 0 && falta < valor ? `faltam ${formatBRL(falta)}` : undefined;
+    const detalhe =
+      jaTem !== undefined && jaTem > 0
+        ? `já tem ${formatBRL(Math.min(jaTem, valor))}`
+        : falta !== undefined && falta > 0 && falta < valor
+          ? `faltam ${formatBRL(falta)}`
+          : undefined;
     return {
       rotulo,
       valor,
@@ -225,7 +240,8 @@ function alvoDoPlano(plano: Plano, meta: Meta | undefined): AlvoResposta | undef
     case 3:
       return com("Total", plano.dividas.totalMedias);
     case 4:
-      return meta ? com("Meta", meta.valorAlvo) : undefined;
+      // o que já estava guardado pra meta: a pessoa vê que não parte do zero
+      return meta ? com("Meta", meta.valorAlvo, undefined, plano.guardadoNaMeta) : undefined;
   }
 }
 
@@ -260,6 +276,7 @@ function mesesDoFolego(plano: Plano): number | null {
 /** A frase curta do prazo pro aria-live e pros segmentos: "o cartão zera em 3 meses". */
 function prazoCurto(plano: Plano, meta: Meta | undefined, tempo: TempoResposta): string {
   if (tempo.tipo === "parado") return "o plano não anda";
+  if (tempo.tipo === "pronta") return "a meta já está garantida com o que você guardou";
   if (tempo.tipo === "ano") return `em 1 ano, ${formatBRL(tempo.valor)} guardados`;
   const { caras, medias } = plano.dividas;
   const prazo = tempo.tipo === "prazo" ? `em ${formatMeses(tempo.meses)}` : null;
@@ -316,9 +333,26 @@ function tempoDoPlano(
   hoje: Date,
 ): { tempo: TempoResposta; acao?: { ritmo: Ritmo; rotulo: string } } {
   const ate = rotuloAte(plano, meta);
-  // no degrau 4 os potes marcados levam à meta mesmo com o Guardar em 0%:
-  // "Parado" só quando nada contribui
-  const potesLevamAMeta = plano.degrau === 4 && meta !== undefined && (projecaoMeta?.aporteMensal ?? 0) > 0;
+
+  // o que já estava guardado pra meta paga ela sozinho: não há prazo a mostrar
+  if (plano.degrau === 4 && meta && projecaoMeta?.meses === 0) {
+    const nome = rotuloMeta(meta);
+    return {
+      tempo: {
+        tipo: "pronta",
+        texto: "Meta já garantida",
+        frase: `O que você já guardou pra ${nome} (${formatBRL(projecaoMeta.jaGuardado)}) já cobre os ${formatBRL(meta.valorAlvo)}. Quer outra meta? Troque em Ajustar respostas.`,
+        rotuloSr: `${ate}: já garantida com o que você guardou`,
+      },
+    };
+  }
+
+  // no degrau 4 os potes marcados — e o já guardado rendendo — levam à meta
+  // mesmo com o Guardar em 0%: "Parado" só quando nada se mexe
+  const potesLevamAMeta =
+    plano.degrau === 4 &&
+    meta !== undefined &&
+    ((projecaoMeta?.aporteMensal ?? 0) > 0 || (projecaoMeta?.meses ?? null) !== null);
 
   if (plano.aporte <= 0 && !potesLevamAMeta) {
     return {
@@ -474,7 +508,9 @@ function respostaDeCorte(plano: Plano, eyebrowMes: string): RespostaCorte {
  */
 export function respostaDoPlano(plano: Plano, opcoes: OpcoesResposta): Resposta {
   const { simulacoes, hoje } = opcoes;
-  const meta = opcoes.meta ?? plano.perfil.meta;
+  const metaBruta = opcoes.meta ?? plano.perfil.meta;
+  // os potes do que já está guardado nunca passam do guardado do perfil
+  const meta = metaBruta && metaComGuardadoEfetivo(metaBruta, plano.perfil.guardado);
   const eyebrowMes = mesEstimado(hoje, 0) ?? "";
 
   if (plano.modoCorte) return respostaDeCorte(plano, eyebrowMes);

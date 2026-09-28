@@ -446,7 +446,12 @@ function MetaDetalhe({
         <span className="font-bold">{nome}</span>
         <span className="text-ink-2 tnum"> · {formatBRL(projecao.valorAlvo)}</span>
       </p>
-      {projecao.aporteMensal <= 0 ? (
+      {projecao.jaGuardado > 0 && (
+        <p className="text-sm text-ink-2 tnum">{textos.metaDetalhe.jaGuardado(projecao.jaGuardado, projecao.valorAlvo)}</p>
+      )}
+      {prazo === 0 ? (
+        <p className="text-sm text-ink-2">{textos.metaDetalhe.garantida}</p>
+      ) : projecao.aporteMensal <= 0 && prazo === null ? (
         <p className="text-sm text-ink-2">
           Nenhum pote está entrando nesta meta ainda. Nas opções de um pote, ligue “Entra na meta {nome}” e o tempo
           até lá aparece aqui.
@@ -474,8 +479,10 @@ function MetaDetalhe({
             : `Com o rendimento que você informou, ${formatMeses(prazo)}; sem ele, ${formatMeses(projecao.semRendimento)}.`}
         </p>
       )}
-      {projecao.aporteMensal > 0 && (
-        <p className="text-sm text-ink-2">{textos.metaDetalhe.entraNaConta(marcados, planoEntra, !degrauDeMetas)}</p>
+      {prazo !== 0 && (projecao.aporteMensal > 0 || projecao.jaGuardado > 0) && (
+        <p className="text-sm text-ink-2">
+          {textos.metaDetalhe.entraNaConta(marcados, planoEntra, !degrauDeMetas, projecao.jaGuardado > 0)}
+        </p>
       )}
       <p className="text-xs text-muted-foreground">
         Estimativa feita com os números que você informou. Rendimento não é garantido e o prazo muda se os valores

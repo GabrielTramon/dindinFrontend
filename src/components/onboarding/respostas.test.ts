@@ -89,3 +89,32 @@ describe("salário bruto de PJ", () => {
     expect(perfil.salarioBruto).toBe(8000);
   });
 });
+
+describe("potes do que já está guardado pra meta, lidos do armazenamento", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("passam pela allow-list: campos certos ficam, lixo sai, e a chave ausente continua ausente", () => {
+    guardar({
+      [STORAGE_KEYS.perfil]: {
+        guardado: 20000,
+        meta: {
+          tipo: "casa",
+          valorAlvo: 33000,
+          guardados: [
+            { id: "a", nome: "CDB", valor: 5000, rendimentoMensal: 0.01, extra: "x" },
+            { id: "", nome: "sem id", valor: 10 },
+            { id: "b", valor: 100 },
+            "lixo",
+          ],
+        },
+      },
+    });
+    const { respostas } = lerRespostasSalvas();
+    expect(respostas.meta?.guardados).toEqual([
+      { id: "a", nome: "CDB", valor: 5000, rendimentoMensal: 0.01 },
+      { id: "b", nome: "Já guardado", valor: 100 },
+    ]);
+    guardar({ [STORAGE_KEYS.perfil]: { meta: { tipo: "casa", valorAlvo: 1 } } });
+    expect("guardados" in (lerRespostasSalvas().respostas.meta ?? {})).toBe(false);
+  });
+});

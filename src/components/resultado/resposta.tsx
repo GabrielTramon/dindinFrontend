@@ -1,6 +1,6 @@
 "use client";
 
-import { Flag, TrendingUp } from "lucide-react";
+import { CircleCheck, Flag, TrendingUp } from "lucide-react";
 import { ctaClasses } from "@/components/layout/cta-link";
 import { CountUp } from "@/components/motion/count-up";
 import type { AlvoResposta, RespostaCorte, RespostaPlano, Ritmo, TempoResposta } from "@/domain";
@@ -72,7 +72,7 @@ export function Resposta({ resposta, onEscolherRitmo }: RespostaProps) {
         </div>
       </dl>
 
-      {resposta.tempo.tipo === "sem-prazo" || resposta.tempo.tipo === "parado" ? (
+      {resposta.tempo.tipo === "sem-prazo" || resposta.tempo.tipo === "parado" || resposta.tempo.tipo === "pronta" ? (
         <div className="mt-2 space-y-2">
           <p className="text-sm text-ink-2">{resposta.tempo.frase}</p>
           {acao && (
@@ -135,6 +135,14 @@ function Tempo({ tempo }: { tempo: TempoResposta }) {
           <span aria-hidden="true" className="tnum">
             {tempo.texto}
           </span>
+        </dd>
+      );
+    case "pronta":
+      return (
+        <dd className="inline-flex items-center gap-1.5 text-lg font-bold text-primary">
+          <span className="sr-only">{tempo.rotuloSr}</span>
+          <CircleCheck aria-hidden="true" className="size-5 shrink-0" />
+          <span aria-hidden="true">{tempo.texto}</span>
         </dd>
       );
     case "sem-prazo":
