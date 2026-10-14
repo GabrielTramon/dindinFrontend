@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   arredondar,
   formatBRL,
+  formatBRLCurto,
   formatMeses,
   formatPct,
   lerReaisColados,
@@ -14,6 +15,18 @@ import {
   taxaDoTexto,
   textoDaTaxa,
 } from "./format";
+
+describe("formatBRLCurto (eixos de gráfico)", () => {
+  it("abaixo de mil é o real de sempre; depois, mil, mi e bi", () => {
+    expect(formatBRLCurto(850)).toBe(formatBRL(850));
+    expect(formatBRLCurto(12000)).toBe("R$ 12 mil");
+    expect(formatBRLCurto(2500)).toBe("R$ 2,5 mil");
+    expect(formatBRLCurto(1_200_000)).toBe("R$ 1,2 mi");
+    expect(formatBRLCurto(150_000_000)).toBe("R$ 150 mi");
+    expect(formatBRLCurto(3e9)).toBe("R$ 3 bi");
+    expect(formatBRLCurto(Number.NaN)).toBe(formatBRL(0));
+  });
+});
 
 describe("mascaraCentavosBRL", () => {
   it("os dígitos entram pela direita, como no app do banco", () => {

@@ -43,6 +43,7 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-chart-base: var(--chart-base);
 
   /* extras de marca */
   --color-ink-2: var(--ink-2);
@@ -124,6 +125,9 @@
   --chart-3: #4d896c;
   --chart-4: #837e6a;
   --chart-5: #a34328;
+  /* a base cinza de um gráfico de destaque (o investido, sob os juros em chart-1).
+     Validado contra o card: separação CVD 9,2 e visão normal 15,2 (dataviz) */
+  --chart-base: #837e6a;
   --brand-block: #0d6b4c;
   --brand-block-foreground: #ffffff;
   --brand-block-muted: #cfe6db;
@@ -197,6 +201,9 @@
   --chart-3: #8ecfae;
   --chart-4: #8e9b91;
   --chart-5: #e28a6e;
+  /* no escuro o chart-4 (#8e9b91) colava no verde (visão normal 12, deutan 5,8):
+     esta passa com 24 e 21,5, contraste >= 3:1 no card */
+  --chart-base: #5f6b64;
   --brand-block: #0f3d2b;
   --brand-block-foreground: #e9ebe4;
   --brand-block-muted: #a9d5c1;

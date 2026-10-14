@@ -6,7 +6,7 @@ import { HeaderSentinel } from "@/components/layout/header-sentinel";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 /*
-  Cabeçalho do site. `full` na home (nav + conta + toggle + CTA); `minimal`
+  Cabeçalho do site. `full` na home e na calculadora (nav + conta + toggle + CTA); `minimal`
   dentro do fluxo do plano e em /entrar e /conta (logo + conta + toggle).
   A conta (ContaLink) só aparece no `full` a partir de 420px: abaixo disso ela
   apertaria o CTA, que é quem importa na home.
@@ -50,6 +50,13 @@ export function SiteHeader({ variant = "full" }: SiteHeaderProps) {
               >
                 Como funciona
               </a>
+              {/* só a partir de 768px: no sm não cabe junto do CTA (no celular, o caminho é o rodapé) */}
+              <Link
+                href="/calculadoras/juros-compostos"
+                className="press relative hidden min-h-11 items-center rounded-full px-3 text-sm font-bold text-ink-2 outline-none after:absolute after:inset-x-3 after:bottom-2.5 after:h-0.5 after:origin-left after:scale-x-0 after:rounded-full after:bg-primary after:transition-[scale] after:duration-(--duration-base) after:ease-out-expo hover:text-foreground hover:after:scale-x-100 focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:after:transition-none md:inline-flex"
+              >
+                Juros compostos
+              </Link>
               <ContaLink className="hidden min-[420px]:inline-flex" />
               <ThemeToggle />
               <CtaLink href="/plano" transitionTypes={["nav-forward"]}>

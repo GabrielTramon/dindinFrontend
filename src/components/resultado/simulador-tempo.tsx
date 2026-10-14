@@ -1,6 +1,7 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { CountUp } from "@/components/motion/count-up";
 import { ChipsRadio } from "@/components/onboarding/chips";
@@ -24,10 +25,14 @@ import { MAX_PCT_RENDIMENTO } from "./pote-comum";
   "E se você mantiver?": quanto vira guardar um valor por mês durante um
   tempo — a tabela (6 meses a 20 anos) e um tempo que a pessoa escolhe.
 
-  É um simulador, não o plano: começa com o valor do Guardar e o rendimento
-  que a pessoa deu a ele, e o 13º quando ele entra no plano; mexer aqui não
-  grava nada. O valor do plano continua mandando enquanto ela não digitar outro
-  (trocar de ritmo lá em cima muda aqui também).
+  É um simulador, não o plano: começa com o que a pessoa já tem guardado, o
+  valor do Guardar e o rendimento que ela deu a ele, e o 13º quando ele entra
+  no plano; mexer aqui não grava nada, e qualquer valor vale (simulação
+  rápida). Os valores do plano continuam mandando enquanto ela não digitar
+  outro (trocar de ritmo lá em cima muda aqui também).
+
+  Embaixo, o caminho pra calculadora de juros compostos, que faz a mesma conta
+  sem o plano (juros-compostos.ts).
 
   A conta é a do domínio (simulador.ts), com a mesma convenção de mês das
   projeções do plano.
@@ -51,6 +56,8 @@ interface SimuladorTempoProps {
 }
 
 export function SimuladorTempo({ plano, valorDoPlano, taxaDoGuardar }: SimuladorTempoProps) {
+  // null = o que o perfil diz que ela tem guardado; número ou undefined (campo vazio) = o que ela digitou
+  const [inicialDigitado, setInicialDigitado] = useState<number | undefined | null>(null);
   // null = o valor do plano (segue o ritmo); número ou undefined (campo vazio) = o que ela digitou
   const [valorDigitado, setValorDigitado] = useState<number | undefined | null>(null);
   // null = o rendimento do Guardar; string = o que ela digitou aqui (vazio = sem rendimento)
@@ -59,6 +66,8 @@ export function SimuladorTempo({ plano, valorDoPlano, taxaDoGuardar }: Simulador
   const [unidade, setUnidade] = useState<Unidade>("anos");
   const [somarDecimo, setSomarDecimo] = useState(true);
 
+  const guardadoDoPlano = plano.perfil.guardado;
+  const inicial = inicialDigitado === null ? guardadoDoPlano : (inicialDigitado ?? 0);
   const porMes = valorDigitado === null ? valorDoPlano : (valorDigitado ?? 0);
   const textoTaxa = taxaDigitada ?? textoDaTaxa(taxaDoGuardar);
   const taxaMensal = taxaDoTexto(textoTaxa, MAX_PCT_RENDIMENTO) ?? 0;
@@ -69,14 +78,15 @@ export function SimuladorTempo({ plano, valorDoPlano, taxaDoGuardar }: Simulador
   const tabela = useMemo(
     () =>
       simularNoTempo(
-        { porMes, taxaMensal, decimo: somarDecimo ? entradasDoDecimo(decimoDoPlano) : null },
+        { inicial, porMes, taxaMensal, decimo: somarDecimo ? entradasDoDecimo(decimoDoPlano) : null },
         PERIODOS_DA_TABELA,
       ),
-    [porMes, taxaMensal, somarDecimo, decimoDoPlano],
+    [inicial, porMes, taxaMensal, somarDecimo, decimoDoPlano],
   );
   const escolhido = useMemo(
-    () => guardarPor({ porMes, taxaMensal, decimo: somarDecimo ? entradasDoDecimo(decimoDoPlano) : null }, meses),
-    [porMes, taxaMensal, somarDecimo, decimoDoPlano, meses],
+    () =>
+      guardarPor({ inicial, porMes, taxaMensal, decimo: somarDecimo ? entradasDoDecimo(decimoDoPlano) : null }, meses),
+    [inicial, porMes, taxaMensal, somarDecimo, decimoDoPlano, meses],
   );
 
   const editouValor = valorDigitado !== null && porMes !== valorDoPlano;
@@ -97,6 +107,13 @@ export function SimuladorTempo({ plano, valorDoPlano, taxaDoGuardar }: Simulador
       <p className="mt-1 text-sm text-ink-2">{textosSimulador.ajuda}</p>
 
       <div className="mt-5 grid min-w-0 gap-4 sm:grid-cols-2">
+        <MoneyInput
+          id="simulador-inicial"
+          label="Já tenho guardado"
+          size="md"
+          value={inicialDigitado === null ? guardadoDoPlano : inicialDigitado}
+          onChange={(n) => setInicialDigitado(n)}
+        />
         <div className="grid min-w-0 gap-1">
           <MoneyInput
             id="simulador-valor"
@@ -126,7 +143,7 @@ export function SimuladorTempo({ plano, valorDoPlano, taxaDoGuardar }: Simulador
           suffix="% ao mês"
           className="min-w-0 tnum"
         />
-        <div className="grid min-w-0 gap-2 sm:col-span-2">
+        <div className="grid min-w-0 gap-2">
           <div className="flex min-w-0 flex-wrap items-end gap-3">
             <NumberInput
               id="simulador-tempo"
@@ -140,7 +157,7 @@ export function SimuladorTempo({ plano, valorDoPlano, taxaDoGuardar }: Simulador
               }}
               format={String}
               placeholder="3"
-              campoClassName="w-28"
+              campoClassName="w-24"
             />
             <ChipsRadio<Unidade>
               name="simulador-unidade"
@@ -194,7 +211,8 @@ export function SimuladorTempo({ plano, valorDoPlano, taxaDoGuardar }: Simulador
 
       <table className="mt-5 w-full text-left text-sm tnum">
         <caption className="sr-only">
-          Quanto vira guardar {formatBRL(porMes)} por mês, de 6 meses a 20 anos
+          Quanto vira guardar {formatBRL(porMes)} por mês
+          {inicial > 0 ? `, começando com ${formatBRL(inicial)}` : ""}, de 6 meses a 20 anos
         </caption>
         <thead>
           <tr className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
@@ -235,6 +253,14 @@ export function SimuladorTempo({ plano, valorDoPlano, taxaDoGuardar }: Simulador
         </tbody>
       </table>
       <p className="mt-3 text-xs text-muted-foreground">{textosSimulador.inflacao}</p>
+      <Link
+        href="/calculadoras/juros-compostos"
+        transitionTypes={["nav-forward"]}
+        className="press mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-md text-sm font-bold text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      >
+        {textosSimulador.calculadora}
+        <ArrowRight aria-hidden="true" className="size-4" />
+      </Link>
     </section>
   );
 }
