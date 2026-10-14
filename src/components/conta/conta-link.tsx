@@ -1,6 +1,5 @@
 "use client";
 
-import { LogIn, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
@@ -10,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 /*
   O ponto fixo de conta no header (SiteHeader, nos dois variants).
-  - Sem sessão: pílula "Entrar" → /entrar. Antes de ir, grava o caminho atual
+  - Sem sessão: pílula contornada "Entrar" → /entrar. Antes de ir, grava o caminho atual
     como retorno: depois de entrar, a pessoa volta pra onde estava. Numa tela
     de entrar (/entrar, /criar-conta, /esqueci-senha, /redefinir-senha), não
     grava nada (guardarRetorno recusa: o retorno que trouxe a pessoa até ali vale).
@@ -31,7 +30,8 @@ export function ContaLink({ className }: { className?: string }) {
     if (sessao) void validarSessaoEmSegundoPlano();
   }, [sessao]);
 
-  const classes = cn(ctaClasses("ghost"), "px-4", className);
+  // contornada, par do CTA "Montar meu plano" (solid): mesma pílula, mesmo respiro
+  const classes = cn(ctaClasses("outline"), "px-4", className);
 
   if (sessao) {
     return (
@@ -41,7 +41,6 @@ export function ContaLink({ className }: { className?: string }) {
         aria-current={pathname === "/conta" ? "page" : undefined}
         className={classes}
       >
-        <User aria-hidden="true" className="size-4" />
         Conta
       </Link>
     );
@@ -59,7 +58,6 @@ export function ContaLink({ className }: { className?: string }) {
         guardarRetorno(`${atual}${search}${hash}`);
       }}
     >
-      <LogIn aria-hidden="true" className="size-4" />
       Entrar
     </Link>
   );

@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 */
 
 type CtaLinkProps = ComponentProps<typeof Link> & {
-  variant?: "primary" | "secondary" | "ghost" | "inverse";
+  variant?: keyof typeof variants;
   size?: "md" | "lg";
 };
 
@@ -20,6 +20,10 @@ const base =
 
 const variants = {
   primary: "glow-cta bg-primary text-primary-foreground hover:bg-brand-deep",
+  // o par do cabeçalho: a mesma pílula sem sombra nenhuma, preenchida (o CTA) e contornada (a conta)
+  solid: "bg-primary text-primary-foreground hover:bg-brand-deep",
+  outline:
+    "border border-border-strong text-foreground hover:border-input hover:bg-accent aria-[current=page]:bg-accent",
   secondary:
     "border border-border bg-card text-foreground shadow-card hover:border-border-strong hover:bg-accent",
   ghost: "text-ink-2 hover:bg-accent hover:text-foreground",
