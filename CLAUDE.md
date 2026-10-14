@@ -79,7 +79,9 @@ Na tela do plano, depois do divisor: quanto vira guardar um valor por mês por 6
 
 ## Calculadora de juros compostos (/calculadoras/juros-compostos)
 
-Valor inicial, valor mensal, taxa (ao mês ou ao ano) e período (meses ou anos, até 50 anos). Mostra o valor final, o investido e os juros (com a barra de composição), o gráfico de crescimento (`grafico-crescimento.tsx`) e a tabela do total sobre o investido, ano a ano ou mês a mês.
+Valor inicial, valor mensal, taxa (ao mês ou ao ano) e período (meses ou anos, até 50 anos). Mostra o valor final, o investido e os juros (com a barra de composição), o gráfico de crescimento (`grafico-crescimento.tsx`) e a tabela do total sobre o investido, mês a mês ou ano a ano.
+
+- Os campos ficam em duas colunas a partir de 640px (valores em cima, taxa e período embaixo) e o resultado logo abaixo deles, com o "Limpar". Taxa e período têm a mesma cara (`CampoComUnidade`): número + `Segmented` de mesma largura + uma linha "Equivale a…".
 
 - **Nada é salvo**, e nenhum campo vem com taxa: o app não sugere quanto um investimento rende.
 - Depósito no fim do mês; **taxa ao ano vira a mensal EQUIVALENTE** (`taxaAoMes`: 12% a.a. = 0,9489% a.m.), nunca a divisão por 12 — há teste provando que 1 ano dá exatamente 12%.
@@ -136,6 +138,8 @@ Duas entradas claras, "Criar conta" e "Entrar". **A conta só passa a valer quan
 - Mobile-first: alvos de toque ≥ 44px, uma coluna abaixo de 640px, gutter lateral ≥ 16px, nada com largura fixa maior que a tela.
 - Evitar: gradiente roxo/azul, cofrinho, cifrão, seta subindo, emoji como marcador de seção, tudo centralizado, card em tudo, sombra pesada. Ícones `lucide-react` com moderação, sempre com texto ao lado.
 - Logo: `<Logo />` (marca + "dindin") e `<LogoMark />` de `@/components/brand/logo`. Herdam `currentColor` — controle pela classe `text-*`.
+- Cabeçalho (`layout/site-header`): marca e links (`NavLink`, com `aria-current` na própria página) à esquerda; as ações sempre na ponta direita e nesta ordem: tema, conta, CTA. Conta e CTA são um par — mesma pílula de 44px, mesma fonte —, a conta `outline` e o CTA `solid` (o preenchido sem o glow do `primary`, que no cabeçalho pesava mais que o resto).
+- Unidade de um campo (ao mês | ao ano, meses | anos) e visão de tabela são o `Segmented` (`ui/segmented`), na linha do número e **sempre do menor pro maior: mês, depois ano**. `ChipsRadio` fica pras respostas do plano.
 - Estado vazio e erro sempre explicam o que fazer, sem pedir desculpa.
 
 ## Next 16 (diferente do que você conhece)
