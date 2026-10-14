@@ -212,6 +212,7 @@ export function RedefinirSenha() {
           label="Senha nova"
           name="new-password"
           autoComplete="new-password"
+          placeholder="Crie uma senha nova"
           dica={DICA_SENHA}
           value={senha}
           onChange={(valor) => {

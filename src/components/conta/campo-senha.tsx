@@ -19,7 +19,14 @@ import { SENHA_MAXIMO } from "./validacao";
     cola, e bloquear colar só empurra senha fraca.
   - Dica e erro ficam ligados por aria-describedby; o erro pinta a caixa
     (aria-invalid, como o TextField). Caps Lock ligado ganha um aviso curto.
+  - Texto de exemplo sempre (o campo vazio parecia quebrado, pediu o dono):
+    "Sua senha" pra entrar, "Crie uma senha" pra criar; quem chama pode trocar.
 */
+
+const EXEMPLO: Record<CampoSenhaProps["autoComplete"], string> = {
+  "current-password": "Sua senha",
+  "new-password": "Crie uma senha",
+};
 
 interface CampoSenhaProps {
   id: string;
@@ -33,6 +40,8 @@ interface CampoSenhaProps {
   erroExternoId?: string;
   /** dica fixa embaixo ("Pelo menos 8 caracteres"), ligada por aria-describedby */
   dica?: string;
+  /** texto de exemplo dentro do campo vazio; ausente = o padrão do autoComplete */
+  placeholder?: string;
   name?: string;
   inputRef?: Ref<HTMLInputElement>;
   className?: string;
@@ -47,6 +56,7 @@ export function CampoSenha({
   erro,
   erroExternoId,
   dica,
+  placeholder,
   name,
   inputRef,
   className,
@@ -90,6 +100,7 @@ export function CampoSenha({
           autoCorrect="off"
           spellCheck={false}
           maxLength={SENHA_MAXIMO}
+          placeholder={placeholder ?? EXEMPLO[autoComplete]}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={lerCapsLock}

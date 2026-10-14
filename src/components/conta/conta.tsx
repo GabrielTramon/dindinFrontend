@@ -481,6 +481,7 @@ function SecaoSenha({ token, email, temSenha, onSenhaSalva, onSessaoVencida }: S
                 label="Senha atual"
                 name="current-password"
                 autoComplete="current-password"
+                placeholder="Sua senha de agora"
                 value={atual}
                 onChange={(valor) => {
                   setAtual(valor);
@@ -505,6 +506,7 @@ function SecaoSenha({ token, email, temSenha, onSenhaSalva, onSessaoVencida }: S
             label={temSenha ? "Senha nova" : "Senha"}
             name="new-password"
             autoComplete="new-password"
+            placeholder={temSenha ? "Crie uma senha nova" : undefined}
             dica={DICA_SENHA}
             value={nova}
             onChange={(valor) => {
