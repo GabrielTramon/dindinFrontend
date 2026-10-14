@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 export default function RedefinirSenhaPage() {
   return (
     <ToastProvider>
-      <SiteHeader variant="minimal" />
+      <SiteHeader />
       <PageTransition>
         <main className="flex-1 py-12 sm:py-20">
           <div className="mx-auto w-full max-w-xl px-4 sm:px-6">

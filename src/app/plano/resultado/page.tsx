@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 export default function ResultadoPage() {
   return (
     <>
-      <SiteHeader variant="minimal" />
+      <SiteHeader />
       <PageTransition>
         <main className="flex-1 py-6 sm:py-10 lg:py-12">
           <Resultado />

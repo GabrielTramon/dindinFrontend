@@ -2,11 +2,14 @@
 
 import { useId, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { Dica } from "@/components/layout/dica";
+import { ICONE_DO_HEADER } from "@/components/layout/header-estilos";
 import { staggerStyle } from "@/components/motion/stagger";
 import { applyTheme, temaAtual, useThemeSync } from "./use-theme";
 
 /*
-  O único toggle de tema do site: botão redondo de 44px, sem texto visível.
+  O único toggle de tema do site: botão redondo de 44px, sem texto visível
+  (o botão-ícone do cabeçalho, com a Dica no hover).
   Os raios giram por rotate(a) SEM centro no atributo: a origem (12,12) vem do
   transform-origin: center do utilitário theme-icon — com rotate(a 12 12) os
   dois centros se somam e os raios giram em torno de (24,24), fora do ícone.
@@ -36,13 +39,14 @@ export function ThemeToggle({ className }: { className?: string }) {
         ref={botao}
         type="button"
         onClick={alternar}
-        className={cn(
-          "press inline-flex size-11 items-center justify-center rounded-full text-ink-2 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-          className,
-        )}
+        className={cn(ICONE_DO_HEADER, className)}
       >
         <span className="sr-only dark:hidden">Mudar para o tema escuro</span>
         <span className="sr-only hidden dark:inline">Mudar para o tema claro</span>
+        <Dica>
+          <span className="dark:hidden">Tema escuro</span>
+          <span className="hidden dark:inline">Tema claro</span>
+        </Dica>
         <svg
           aria-hidden="true"
           viewBox="0 0 24 24"

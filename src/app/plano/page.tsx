@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 export default function PlanoPage() {
   return (
     <>
-      <SiteHeader variant="minimal" />
+      <SiteHeader />
       <PageTransition>
         <main className="flex flex-1 flex-col">
           <Suspense fallback={<OnboardingSkeleton />}>

@@ -20,8 +20,7 @@ const base =
 
 const variants = {
   primary: "glow-cta bg-primary text-primary-foreground hover:bg-brand-deep",
-  // o par do cabeçalho: a mesma pílula sem sombra nenhuma, preenchida (o CTA) e contornada (a conta)
-  solid: "bg-primary text-primary-foreground hover:bg-brand-deep",
+  // contornado e sem sombra (a conta no menu do celular)
   outline:
     "border border-border-strong text-foreground hover:border-input hover:bg-accent aria-[current=page]:bg-accent",
   secondary:

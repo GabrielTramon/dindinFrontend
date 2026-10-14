@@ -4,8 +4,8 @@ import { Logo } from "@/components/brand/logo";
 /*
   Rodapé. Carrega o disclaimer que precisa estar em toda página com conteúdo
   financeiro — não é enfeite, é o limite regulatório do produto. E os caminhos
-  pras ferramentas abertas (o plano e a calculadora): no celular, o cabeçalho
-  não tem espaço pro link da calculadora, e é aqui que ele mora.
+  pras ferramentas abertas (o plano e a calculadora), à vista no fim de toda
+  página (no celular, o cabeçalho guarda os links dentro do menu).
 */
 
 const LINK =
