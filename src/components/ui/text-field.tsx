@@ -4,7 +4,8 @@ import { cn } from "@/lib/utils";
 /*
   Campo de texto com a caixa do NumberInput (md) ou nu, só com a linha de
   baixo (sm). Campo de texto NÃO usa `press` (o :active escalaria o campo):
-  transiciona só borda e sombra.
+  transiciona só borda e sombra. `numeric` dá ao texto a cara do número do
+  NumberInput md (a taxa ao lado dos campos de reais, na calculadora).
 */
 
 type Props = Omit<ComponentProps<"input">, "size"> & {
@@ -13,10 +14,11 @@ type Props = Omit<ComponentProps<"input">, "size"> & {
   hideLabel?: boolean;
   size?: "md" | "sm";
   suffix?: string;
+  numeric?: boolean;
   className?: string;
 };
 
-export function TextField({ id, label, hideLabel, size = "md", suffix, className, ...input }: Props) {
+export function TextField({ id, label, hideLabel, size = "md", suffix, numeric, className, ...input }: Props) {
   return (
     <div className={cn("grid min-w-0 gap-2", className)}>
       <label htmlFor={id} className={hideLabel ? "sr-only" : "eyebrow"}>
@@ -38,11 +40,12 @@ export function TextField({ id, label, hideLabel, size = "md", suffix, className
           className={cn(
             "w-0 min-w-0 flex-1 bg-transparent font-bold text-foreground outline-none placeholder:font-normal placeholder:text-ink-3",
             size === "md" ? "text-lg" : "text-base",
+            numeric && "text-2xl font-extrabold tracking-tight tnum placeholder:font-extrabold",
           )}
           {...input}
         />
         {suffix && (
-          <span aria-hidden="true" className="shrink-0 text-sm font-bold text-ink-2">
+          <span aria-hidden="true" className={cn("shrink-0 text-sm font-bold text-ink-2", numeric && "text-xl")}>
             {suffix}
           </span>
         )}

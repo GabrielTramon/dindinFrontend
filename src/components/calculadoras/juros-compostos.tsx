@@ -1,13 +1,13 @@
 "use client";
 
 import { RotateCcw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { ctaClasses } from "@/components/layout/cta-link";
 import { CountUp } from "@/components/motion/count-up";
-import { ChipsRadio } from "@/components/onboarding/chips";
 import { MoneyInput } from "@/components/onboarding/money-input";
 import { NumberInput } from "@/components/onboarding/number-input";
 import { Marcador, SegmentBar } from "@/components/ui/segment-bar";
+import { Segmented } from "@/components/ui/segmented";
 import { TextField } from "@/components/ui/text-field";
 import { jurosCompostos, MAX_MESES_JUROS, porAno, taxaAoMes, type MesDeJuros, type PeriodoTaxa } from "@/domain";
 import { formatBRL, formatMeses, formatPct, mascaraTaxa, taxaDoTexto } from "@/lib/format";
@@ -26,22 +26,28 @@ import { GraficoCrescimento } from "./grafico-crescimento";
   A conta é a de juros-compostos.ts (a mesma do "E se você mantiver?" do
   plano): depósito no fim de cada mês, e a taxa ao ano vira a mensal
   EQUIVALENTE (12% a.a. ≈ 0,95% a.m.), não a divisão por 12.
+
+  Os campos ficam em duas colunas (a partir de 640px), com o resultado logo
+  embaixo. A taxa e o período têm a unidade num controle segmentado colado no
+  número, os dois com a mesma largura e a mesma ordem (mês, depois ano), e uma
+  linha de ajuda cada ("Equivale a…").
 */
 
 type Unidade = "anos" | "meses";
 type Visao = "ano" | "mes";
 
+// toda escolha de unidade da página vai do menor pro maior: mês, depois ano
 const PERIODOS_TAXA: readonly { value: PeriodoTaxa; label: string }[] = [
   { value: "mes", label: "ao mês" },
   { value: "ano", label: "ao ano" },
 ];
 const UNIDADES: readonly { value: Unidade; label: string }[] = [
-  { value: "anos", label: "anos" },
   { value: "meses", label: "meses" },
+  { value: "anos", label: "anos" },
 ];
 const VISOES: readonly { value: Visao; label: string }[] = [
-  { value: "ano", label: "Ano a ano" },
   { value: "mes", label: "Mês a mês" },
+  { value: "ano", label: "Ano a ano" },
 ];
 
 /** o teto da taxa, em %: 20% ao mês, 99% ao ano (a máscara aceita 2 dígitos inteiros) */
@@ -84,6 +90,14 @@ export function CalculadoraJurosCompostos() {
         ? `Equivale a ${formatPct(taxaMensal, 2)} ao mês`
         : `Equivale a ${formatPct((1 + taxaMensal) ** 12 - 1, 2)} ao ano`;
 
+  // o par da linha da taxa: a conversão do período ou, sem ela, o teto (que o campo aplica sozinho)
+  const equivalenteDoTempo =
+    tempo && unidade === "anos"
+      ? `Equivale a ${tempo * 12} meses`
+      : tempo && tempo >= 12
+        ? `Equivale a ${formatMeses(tempo)}`
+        : `Até ${MAXIMO[unidade]} ${unidade}.`;
+
   const resumo = temConta
     ? `Em ${formatMeses(meses)}: ${formatBRL(resultado.final)} no total, sendo ${formatBRL(resultado.investido)} investidos e ${formatBRL(resultado.juros)} de juros.`
     : "";
@@ -105,22 +119,29 @@ export function CalculadoraJurosCompostos() {
     setTaxaTexto("");
     setTempo(undefined);
     setVisaoEscolhida(null);
+    // o botão some junto com os números: o foco volta pro primeiro campo, não pro fim da página
+    document.getElementById("jc-inicial")?.focus();
   }
 
   const vazio = inicial === undefined && mensal === undefined && taxaTexto === "" && tempo === undefined;
 
   return (
     <div className="grid min-w-0 gap-12">
-      <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:items-start lg:gap-12">
-        {/* os campos */}
-        <form noValidate onSubmit={(e) => e.preventDefault()} className="grid min-w-0 gap-5" aria-label="Dados da simulação">
-          <div className="grid min-w-0 gap-5 sm:grid-cols-2 lg:grid-cols-1">
-            <MoneyInput id="jc-inicial" label="Valor inicial" size="md" value={inicial} onChange={setInicial} />
-            <MoneyInput id="jc-mensal" label="Valor mensal" size="md" value={mensal} onChange={setMensal} />
-          </div>
+      <div className="grid min-w-0 gap-8">
+        {/* os campos, em duas colunas: os valores em cima, a taxa e o período embaixo */}
+        <form
+          noValidate
+          onSubmit={(e) => e.preventDefault()}
+          className="grid min-w-0 items-start gap-x-6 gap-y-5 sm:grid-cols-2"
+          aria-label="Dados da simulação"
+        >
+          <MoneyInput id="jc-inicial" label="Valor inicial" size="md" value={inicial} onChange={setInicial} />
+          <MoneyInput id="jc-mensal" label="Valor mensal" size="md" value={mensal} onChange={setMensal} />
 
-          <div className="grid min-w-0 gap-2">
-            <div className="flex min-w-0 flex-wrap items-end gap-3">
+          <CampoComUnidade
+            ajudaId="jc-taxa-equivalente"
+            ajuda={equivalente ?? "Vazio = sem juros."}
+            campo={
               <TextField
                 id="jc-taxa"
                 label="Taxa de juros"
@@ -130,76 +151,90 @@ export function CalculadoraJurosCompostos() {
                 value={taxaTexto}
                 onChange={(e) => setTaxaTexto(mascaraTaxa(e.target.value, TETO_TAXA[periodoTaxa]))}
                 suffix="%"
+                numeric
                 aria-describedby="jc-taxa-equivalente"
-                className="w-36 tnum"
+                className="@xs:flex-1"
               />
-              <ChipsRadio<PeriodoTaxa>
+            }
+            unidade={
+              <Segmented<PeriodoTaxa>
                 name="jc-periodo-taxa"
                 label="A taxa é"
                 options={PERIODOS_TAXA}
                 value={periodoTaxa}
                 onChange={trocarPeriodoDaTaxa}
-                className="pb-1.5"
+                className="@xs:w-44"
               />
-            </div>
-            <p id="jc-taxa-equivalente" className="min-h-5 text-sm text-ink-2 tnum">
-              {equivalente ?? "Vazio = sem juros."}
-            </p>
-          </div>
+            }
+          />
 
-          <div className="flex min-w-0 flex-wrap items-end gap-3">
-            <NumberInput
-              id="jc-tempo"
-              label="Período"
-              size="md"
-              value={tempo}
-              onChange={setTempo}
-              parse={(t) => {
-                const digitos = t.replace(/\D/g, "").slice(0, 3);
-                return digitos === "" ? undefined : Math.min(MAXIMO[unidade], Number(digitos));
-              }}
-              format={String}
-              placeholder="0"
-              campoClassName="w-28"
-            />
-            <ChipsRadio<Unidade>
-              name="jc-unidade"
-              label="Período em"
-              options={UNIDADES}
-              value={unidade}
-              onChange={trocarUnidade}
-              className="pb-1.5"
-            />
-          </div>
-
-          {!vazio && (
-            <button type="button" onClick={limpar} className={cn(ctaClasses("ghost", "md"), "justify-self-start")}>
-              <RotateCcw aria-hidden="true" className="size-4" />
-              Limpar
-            </button>
-          )}
+          <CampoComUnidade
+            ajudaId="jc-tempo-equivalente"
+            ajuda={equivalenteDoTempo}
+            campo={
+              <NumberInput
+                id="jc-tempo"
+                label="Período"
+                size="md"
+                value={tempo}
+                onChange={setTempo}
+                parse={(t) => {
+                  const digitos = t.replace(/\D/g, "").slice(0, 3);
+                  return digitos === "" ? undefined : Math.min(MAXIMO[unidade], Number(digitos));
+                }}
+                format={String}
+                placeholder="0"
+                describedBy="jc-tempo-equivalente"
+                className="@xs:flex-1"
+              />
+            }
+            unidade={
+              <Segmented<Unidade>
+                name="jc-unidade"
+                label="Período em"
+                options={UNIDADES}
+                value={unidade}
+                onChange={trocarUnidade}
+                className="@xs:w-44"
+              />
+            }
+          />
         </form>
 
-        {/* o resultado */}
-        <section
-          aria-labelledby="jc-resultado-titulo"
-          className="min-w-0 rounded-3xl border bg-card p-5 shadow-card sm:p-7 lg:sticky lg:top-24"
-        >
-          <h2 id="jc-resultado-titulo" className="eyebrow">
-            {temConta ? `Valor final em ${formatMeses(meses)}` : "Resultado"}
-          </h2>
+        {/* o resultado, logo embaixo dos campos */}
+        <section aria-labelledby="jc-resultado-titulo" className="min-w-0 rounded-3xl border bg-card p-5 shadow-card sm:p-7">
+          <div className="flex min-w-0 items-center justify-between gap-3">
+            <h2 id="jc-resultado-titulo" className="eyebrow">
+              {temConta ? `Valor final em ${formatMeses(meses)}` : "Resultado"}
+            </h2>
+            {!vazio && (
+              // -my-3.5: o botão de 44px ocupa a altura da linha do rótulo (aparecer não empurra o cartão)
+              <button
+                type="button"
+                onClick={limpar}
+                aria-label="Limpar os campos"
+                className={cn(ctaClasses("ghost"), "-my-3.5 -mr-2 h-11 shrink-0 px-3")}
+              >
+                <RotateCcw aria-hidden="true" className="size-4" />
+                Limpar
+              </button>
+            )}
+          </div>
           {/* os números contam até o valor; quem lê a tela ouve só o resumo */}
           <p className="sr-only" aria-live="polite">
             {resumo}
           </p>
 
           {temConta ? (
-            <div aria-hidden="true">
+            <div
+              aria-hidden="true"
+              className="mt-2 grid min-w-0 gap-x-10 gap-y-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-end"
+            >
               {/* o número de destaque: algarismos proporcionais (tnum só em coluna) */}
-              <p className="mt-2 text-4xl font-extrabold tracking-tight [overflow-wrap:anywhere] text-foreground sm:text-5xl">
+              <p className="text-4xl font-extrabold tracking-tight [overflow-wrap:anywhere] text-foreground sm:text-5xl">
                 <CountUp value={resultado.final} />
               </p>
-              <dl className="mt-6 grid grid-cols-2 gap-4">
+              <dl className="grid grid-cols-2 gap-4 md:gap-x-10">
                 <div className="min-w-0">
                   <dt className="flex items-center gap-1.5 text-sm text-ink-2">
                     <Marcador className="bg-chart-base" />
@@ -218,7 +253,7 @@ export function CalculadoraJurosCompostos() {
                 </div>
               </dl>
               <SegmentBar
-                className="mt-5"
+                className="md:col-span-2"
                 segments={[
                   { value: resultado.investido, className: "bg-chart-base" },
                   { value: resultado.juros, className: "bg-chart-1" },
@@ -257,12 +292,13 @@ export function CalculadoraJurosCompostos() {
               <h3 id="jc-tabela-titulo" className="font-bold">
                 Valor total sobre o valor investido
               </h3>
-              <ChipsRadio<Visao>
+              <Segmented<Visao>
                 name="jc-visao"
                 label="Ver a tabela"
                 options={VISOES}
                 value={visao}
                 onChange={setVisaoEscolhida}
+                size="sm"
               />
             </div>
             <TabelaDeJuros linhas={linhasDaTabela} visao={visao} />
@@ -272,6 +308,36 @@ export function CalculadoraJurosCompostos() {
 
       <p className="text-xs text-pretty text-muted-foreground">
         Simulação educativa: não considera imposto de renda, taxas nem inflação, e não é recomendação de investimento.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Um número com unidade (a taxa, o período): o campo e o controle segmentado na
+ * mesma linha, alinhados pela base da caixa, e a linha de ajuda embaixo. Numa
+ * coluna estreita (menos de 320px, o caso das duas colunas entre 640 e ~720px),
+ * a unidade desce pra baixo do campo, na largura toda.
+ */
+function CampoComUnidade({
+  campo,
+  unidade,
+  ajuda,
+  ajudaId,
+}: {
+  campo: ReactNode;
+  unidade: ReactNode;
+  ajuda: string;
+  ajudaId: string;
+}) {
+  return (
+    <div className="@container grid min-w-0 gap-2">
+      <div className="flex min-w-0 flex-col gap-2 @xs:flex-row @xs:items-end @xs:gap-3">
+        {campo}
+        {unidade}
+      </div>
+      <p id={ajudaId} className="min-h-5 text-sm text-ink-2 tnum">
+        {ajuda}
       </p>
     </div>
   );

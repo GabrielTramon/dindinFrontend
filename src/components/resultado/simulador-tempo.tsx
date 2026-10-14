@@ -4,9 +4,9 @@ import { ArrowRight, Check } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { CountUp } from "@/components/motion/count-up";
-import { ChipsRadio } from "@/components/onboarding/chips";
 import { MoneyInput } from "@/components/onboarding/money-input";
 import { NumberInput } from "@/components/onboarding/number-input";
+import { Segmented } from "@/components/ui/segmented";
 import { TextField } from "@/components/ui/text-field";
 import {
   entradasDoDecimo,
@@ -40,9 +40,10 @@ import { MAX_PCT_RENDIMENTO } from "./pote-comum";
 
 type Unidade = "anos" | "meses";
 
+// a mesma ordem da calculadora: mês, depois ano
 const UNIDADES: readonly { value: Unidade; label: string }[] = [
-  { value: "anos", label: "anos" },
   { value: "meses", label: "meses" },
+  { value: "anos", label: "anos" },
 ];
 
 const MAXIMO: Record<Unidade, number> = { anos: MAX_MESES_SIMULADOS / 12, meses: MAX_MESES_SIMULADOS };
@@ -106,7 +107,8 @@ export function SimuladorTempo({ plano, valorDoPlano, taxaDoGuardar }: Simulador
       </h2>
       <p className="mt-1 text-sm text-ink-2">{textosSimulador.ajuda}</p>
 
-      <div className="mt-5 grid min-w-0 gap-4 sm:grid-cols-2">
+      {/* items-start: a coluna mais alta (o tempo com a unidade embaixo) não estica a vizinha */}
+      <div className="mt-5 grid min-w-0 items-start gap-4 sm:grid-cols-2">
         <MoneyInput
           id="simulador-inicial"
           label="Já tenho guardado"
@@ -143,8 +145,9 @@ export function SimuladorTempo({ plano, valorDoPlano, taxaDoGuardar }: Simulador
           suffix="% ao mês"
           className="min-w-0 tnum"
         />
-        <div className="grid min-w-0 gap-2">
-          <div className="flex min-w-0 flex-wrap items-end gap-3">
+        {/* o número e a unidade na mesma linha, como na calculadora; numa coluna estreita a unidade desce */}
+        <div className="@container min-w-0">
+          <div className="flex min-w-0 flex-col gap-2 @xs:flex-row @xs:items-end @xs:gap-3">
             <NumberInput
               id="simulador-tempo"
               label="Por quanto tempo"
@@ -157,15 +160,15 @@ export function SimuladorTempo({ plano, valorDoPlano, taxaDoGuardar }: Simulador
               }}
               format={String}
               placeholder="3"
-              campoClassName="w-24"
+              className="@xs:flex-1"
             />
-            <ChipsRadio<Unidade>
+            <Segmented<Unidade>
               name="simulador-unidade"
               label="Tempo em"
               options={UNIDADES}
               value={unidade}
               onChange={trocarUnidade}
-              className="pb-1.5"
+              className="@xs:w-44"
             />
           </div>
         </div>
