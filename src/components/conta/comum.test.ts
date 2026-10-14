@@ -114,7 +114,7 @@ describe("fraseDeEntrada", () => {
       "Conta criada. Mandamos um link pra confirmar seu e-mail.",
     );
     expect(fraseDeEntrada({ email: "ana@email.com", como: "confirmou" })).toBe(
-      "E-mail confirmado. Você entrou como ana@email.com.",
+      "E-mail confirmado: sua conta está pronta. Você entrou como ana@email.com.",
     );
     expect(fraseDeEntrada({ email: "ana@email.com", como: "redefiniu" })).toBe(
       "Senha nova salva. Você entrou como ana@email.com.",

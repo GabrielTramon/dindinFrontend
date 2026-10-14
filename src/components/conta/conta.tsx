@@ -21,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { CampoSenha } from "./campo-senha";
 import { baixarArquivo, deixarRecado, fraseDeEntrada, mensagemDeErro, mesEAno, useHidratado, useTemPlano } from "./comum";
+import { ReenviarConfirmacao } from "./confirmar-email";
 import { Acoes, PainelEntrar, Texto, Titulo } from "./entrar";
 import {
   DICA_SENHA,
@@ -218,7 +219,11 @@ export function Conta() {
                 </>
               )}
             </dd>
-            <StatusDoEmail confirmadoEm={conta ? conta.emailVerificadoEm : undefined} carregando={!resultado} />
+            <StatusDoEmail
+              confirmadoEm={conta ? conta.emailVerificadoEm : undefined}
+              email={conta?.email}
+              carregando={!resultado}
+            />
           </div>
           <div className="grid gap-1">
             <dt className="eyebrow">Desde</dt>
@@ -311,8 +316,19 @@ export function Conta() {
 
 /* ---------- e-mail confirmado ---------- */
 
-/** "E-mail confirmado" / "E-mail ainda não confirmado", embaixo do e-mail. `confirmadoEm` undefined = sem resposta da API. */
-function StatusDoEmail({ confirmadoEm, carregando }: { confirmadoEm: string | null | undefined; carregando: boolean }) {
+/**
+ * "E-mail confirmado" / "E-mail ainda não confirmado", embaixo do e-mail. `confirmadoEm` undefined = sem resposta da API.
+ * Não confirmado aqui é conta de antes da confirmação obrigatória (hoje a conta só entra depois do link): o botão manda um link novo.
+ */
+function StatusDoEmail({
+  confirmadoEm,
+  email,
+  carregando,
+}: {
+  confirmadoEm: string | null | undefined;
+  email: string | undefined;
+  carregando: boolean;
+}) {
   if (carregando) {
     return (
       <dd>
@@ -336,8 +352,13 @@ function StatusDoEmail({ confirmadoEm, carregando }: { confirmadoEm: string | nu
         E-mail ainda não confirmado
       </dd>
       <dd className="text-sm text-pretty text-muted-foreground">
-        O link pra confirmar foi pro seu e-mail quando você criou a conta.
+        Confirme pelo link que vai pro seu e-mail: sem isso, esta conta não entra de novo depois que você sair.
       </dd>
+      {email && (
+        <dd>
+          <ReenviarConfirmacao email={email} className="mt-1" />
+        </dd>
+      )}
     </>
   );
 }

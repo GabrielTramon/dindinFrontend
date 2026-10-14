@@ -363,7 +363,7 @@ export function Entrar() {
     return (
       <PainelEntrar
         titulo="Esse link não vale mais"
-        texto="O link de confirmação expirou ou já foi usado. Sua conta continua valendo: é só entrar com e-mail e senha."
+        texto="O link de confirmação expirou ou já foi usado. Se você já confirmou, é só entrar. Se ainda não, entre com e-mail e senha: aparece o botão pra mandar um link novo."
         onEntrou={entrouComSenha}
       />
     );

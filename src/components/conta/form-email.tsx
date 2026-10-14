@@ -9,7 +9,9 @@ import { erroDoEmail, mensagemDeErro } from "./validacao";
 
 /*
   O formulário de um campo do /esqueci-senha: a pessoa dá o e-mail e recebe o
-  link "Criar uma senha nova" (POST /auth/esqueci-senha).
+  link "Criar uma senha nova" (POST /auth/esqueci-senha). O mesmo hook manda o
+  "Confirme seu e-mail" de novo (POST /auth/reenviar-confirmacao), no "Confira
+  seu e-mail" do cadastro e no entrar de quem ainda não confirmou.
 
   O estado mora no hook (usePedidoDeLink) e não no formulário, porque quem
   mostra o "Confira seu e-mail" é o dono da tela (vira o h1).
@@ -39,14 +41,21 @@ export interface PedidoDeLink {
   reenviar: () => Promise<void>;
   usarOutro: () => void;
   limparErro: () => void;
+  /** um link pra `email` acabou de sair por outro caminho (o cadastro): mostra o "Confira" e conta os 60 s */
+  marcarEnviado: (email: string) => void;
 }
 
 /**
- * Pede o link "Criar uma senha nova" e guarda em que pé a pessoa está.
- * `antesDeEnviar` roda antes do POST (é onde o /esqueci-senha grava o retorno
- * com o e-mail: o link abre noutra aba e é o retorno que leva de volta).
+ * Pede um link por e-mail e guarda em que pé a pessoa está. `pedir` é o pedido
+ * (padrão: o "Criar uma senha nova"; o reenvio da confirmação passa
+ * reenviarConfirmacao). `antesDeEnviar` roda antes do POST (é onde o
+ * /esqueci-senha grava o retorno com o e-mail: o link abre noutra aba e é o
+ * retorno que leva de volta).
  */
-export function usePedidoDeLink(antesDeEnviar?: (email: string) => void): PedidoDeLink {
+export function usePedidoDeLink(
+  antesDeEnviar?: (email: string) => void,
+  pedir: (email: string) => Promise<unknown> = esqueciSenha,
+): PedidoDeLink {
   const [fase, setFase] = useState<FasePedido>("digitar");
   const [email, setEmail] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -76,7 +85,7 @@ export function usePedidoDeLink(antesDeEnviar?: (email: string) => void): Pedido
     setErro(null);
     try {
       antesDeEnviar?.(destino);
-      await esqueciSenha(destino);
+      await pedir(destino);
       const t = Date.now();
       setAgora(t);
       setLiberaEm(t + ESPERA_REENVIO_S * 1000);
@@ -125,6 +134,15 @@ export function usePedidoDeLink(antesDeEnviar?: (email: string) => void): Pedido
     },
     limparErro() {
       setErro(null);
+    },
+    marcarEnviado(destino) {
+      const t = Date.now();
+      setAgora(t);
+      setLiberaEm(t + ESPERA_REENVIO_S * 1000);
+      setEmail(destino);
+      setErro(null);
+      setReenviado(false);
+      setFase("enviado");
     },
   };
 }

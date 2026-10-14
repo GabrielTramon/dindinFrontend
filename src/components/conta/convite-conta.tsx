@@ -7,8 +7,9 @@ import { flushSync } from "react-dom";
 import { ctaClasses } from "@/components/layout/cta-link";
 import { Drawer } from "@/components/ui/drawer";
 import type { SessaoApi } from "@/lib/api";
-import { salvarSessao, useSessao } from "@/lib/sessao";
+import { guardarRetorno, salvarSessao, useSessao } from "@/lib/sessao";
 import { cn } from "@/lib/utils";
+import { ConfiraConfirmacao, usePedidoDeConfirmacao } from "./confirmar-email";
 import { FormCriarConta, FormEntrar, type RetornoFixo } from "./form-conta";
 
 /*
@@ -21,9 +22,16 @@ import { FormCriarConta, FormEntrar, type RetornoFixo } from "./form-conta";
   O e-mail digitado vai de uma aba pra outra; a senha não. O 409 do cadastro
   ("já existe conta") troca pra aba de entrar com o e-mail preenchido.
 
-  Deu certo: grava a sessão, a gaveta fecha e o BotaoPdf segue pro PDF — que
-  confere a sessão no servidor de novo antes de liberar. "Esqueci a senha" leva
-  pro /esqueci-senha com o retorno { plano, motivo "pdf" }.
+  Criar conta NÃO entra: a conta só passa a valer pelo link do e-mail. A aba
+  vira "Confira seu e-mail" (com "Mandar de novo"), e o retorno fica gravado
+  com o motivo "pdf": o link, aberto neste navegador, confirma, entra e volta
+  pro plano com o PDF liberado. Se ela confirmar com a gaveta aberta (o link
+  abre noutra aba), o evento storage chega aqui e a gaveta troca sozinha pro
+  "Baixar PDF".
+
+  Entrou pela aba "Já tenho conta": grava a sessão, a gaveta fecha e o BotaoPdf
+  segue pro PDF — que confere a sessão no servidor de novo antes de liberar.
+  "Esqueci a senha" leva pro /esqueci-senha com o retorno { plano, motivo "pdf" }.
 
   Se a pessoa entrar em OUTRA aba com a gaveta aberta, o evento storage chega
   aqui (useSessao) e a gaveta troca sozinha, com o botão de baixar.
@@ -49,8 +57,8 @@ interface ConviteContaProps {
   onEmailChange: (email: string) => void;
   /** linha de aviso em cima das abas (ex.: "Sua sessão venceu…") */
   aviso?: string | null;
-  /** entrou por aqui: a sessão já está gravada */
-  onEntrou: (como: "criou" | "entrou", email: string) => void;
+  /** entrou por aqui (aba "Já tenho conta"): a sessão já está gravada */
+  onEntrou: (como: "entrou", email: string) => void;
   /** "Baixar PDF" depois que a pessoa entrou em outra aba */
   onBaixar: () => void;
 }
@@ -72,8 +80,18 @@ export function ConviteConta({
   // entrou por aqui: segura os formulários na tela enquanto a gaveta fecha (sem piscar "Pronto, você entrou")
   const [concluindo, setConcluindo] = useState(false);
   const mostrarEntrou = Boolean(sessao) && !concluindo;
+  // criou a conta: o "Confira seu e-mail" no lugar do formulário, até ela confirmar
+  const confirmacao = usePedidoDeConfirmacao();
+  const esperandoConfirmacao = confirmacao.fase === "enviado" && aba === "criar";
 
-  function sucesso(resposta: SessaoApi, como: "criou" | "entrou"): boolean {
+  function linkEnviado(enviadoPara: string) {
+    // o link volta pro plano com o PDF liberado, mesmo aberto noutra aba deste navegador
+    guardarRetorno(RETORNO_PDF.caminho, RETORNO_PDF.motivo, enviadoPara);
+    onEmailChange(enviadoPara);
+    confirmacao.marcarEnviado(enviadoPara);
+  }
+
+  function sucesso(resposta: SessaoApi, como: "entrou"): boolean {
     let ok = false;
     // a sessão redesenha pelo useSessao em prioridade síncrona: o "concluindo" tem de ir no mesmo render
     flushSync(() => {
@@ -87,13 +105,17 @@ export function ConviteConta({
 
   const titulo = mostrarEntrou
     ? "Pronto, você entrou"
-    : aba === "entrar"
-      ? "Entre pra baixar o PDF"
-      : "Crie sua conta pra baixar o PDF";
+    : esperandoConfirmacao
+      ? "Confirme seu e-mail"
+      : aba === "entrar"
+        ? "Entre pra baixar o PDF"
+        : "Crie sua conta pra baixar o PDF";
 
   const descricao = mostrarEntrou
     ? null
-    : "O PDF do plano chega na próxima atualização do dindin. Com a conta pronta, ele libera aqui sozinho.";
+    : esperandoConfirmacao
+      ? "Falta só confirmar o e-mail: a conta passa a valer no link que mandamos."
+      : "O PDF do plano chega na próxima atualização do dindin. Com a conta pronta, ele libera aqui sozinho.";
 
   return (
     <Drawer
@@ -155,20 +177,24 @@ export function ConviteConta({
               />
             </Tabs.List>
             <Tabs.Panel value="criar" className="rounded-2xl pt-5 outline-none">
-              <FormCriarConta
-                id="convite-criar"
-                emailInicial={email}
-                onEmailChange={onEmailChange}
-                emailRef={emailRef}
-                retorno={RETORNO_PDF}
-                onSucesso={(resposta) => sucesso(resposta, "criou")}
-                onJaTemConta={(digitado) => {
-                  onEmailChange(digitado);
-                  onAbaChange("entrar");
-                  // o botão que foi tocado sumiu com a aba: o foco vai pro e-mail já preenchido
-                  requestAnimationFrame(() => emailRef.current?.focus({ preventScroll: true }));
-                }}
-              />
+              {esperandoConfirmacao ? (
+                <ConfiraConfirmacao pedido={confirmacao} depois="e o PDF libera aqui" />
+              ) : (
+                <FormCriarConta
+                  id="convite-criar"
+                  emailInicial={email}
+                  onEmailChange={onEmailChange}
+                  emailRef={emailRef}
+                  retorno={RETORNO_PDF}
+                  onLinkEnviado={linkEnviado}
+                  onJaTemConta={(digitado) => {
+                    onEmailChange(digitado);
+                    onAbaChange("entrar");
+                    // o botão que foi tocado sumiu com a aba: o foco vai pro e-mail já preenchido
+                    requestAnimationFrame(() => emailRef.current?.focus({ preventScroll: true }));
+                  }}
+                />
+              )}
             </Tabs.Panel>
             <Tabs.Panel value="entrar" className="rounded-2xl pt-5 outline-none">
               <FormEntrar

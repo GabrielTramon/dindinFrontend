@@ -5,8 +5,10 @@ import {
   MENSAGEM_REDE,
   buscarMe,
   cadastrar,
+  ehEmailNaoConfirmado,
   entrar,
   esqueciSenha,
+  reenviarConfirmacao,
   redefinirSenha,
   trocarSenha,
   verificarToken,
@@ -63,10 +65,11 @@ afterEach(() => {
 });
 
 describe("cadastrar e entrar", () => {
-  it("POST /auth/cadastrar com e-mail e senha como digitada; devolve a sessão (201)", async () => {
-    responder(201, SESSAO);
-    const sessao = await cadastrar("ana@email.com", "  minha senha  ");
-    expect(sessao).toEqual(SESSAO);
+  it("POST /auth/cadastrar com e-mail e senha como digitada; devolve só o aviso do link (202), sem sessão", async () => {
+    const pendente = { email: "ana@email.com", message: "Mandamos um link pra ana@email.com." };
+    responder(202, pendente);
+    const resposta = await cadastrar("ana@email.com", "  minha senha  ");
+    expect(resposta).toEqual(pendente);
     expect(chamadas).toHaveLength(1);
     expect(chamadas[0]).toMatchObject({
       url: `${API_URL}/auth/cadastrar`,
@@ -74,6 +77,32 @@ describe("cadastrar e entrar", () => {
       corpo: { email: "ana@email.com", senha: "  minha senha  " },
     });
     expect(chamadas[0].headers.Authorization).toBeUndefined();
+  });
+
+  it("cadastro que volta sem o e-mail (API de antes da confirmação obrigatória) vira erro, nunca sessão", async () => {
+    responder(201, SESSAO);
+    await expect(cadastrar("ana@email.com", "12345678")).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it("entrar antes de confirmar: 403 EMAIL_NAO_CONFIRMADO, reconhecido por ehEmailNaoConfirmado", async () => {
+    const frase = "Falta confirmar seu e-mail. Abra o link que mandamos pra ana@email.com — a conta só passa a valer depois disso.";
+    responder(403, { error: { code: "EMAIL_NAO_CONFIRMADO", message: frase, requestId: "r9" } });
+    const erro = await entrar("ana@email.com", "12345678").catch((e: unknown) => e);
+    expect(erro).toMatchObject({ status: 403, code: "EMAIL_NAO_CONFIRMADO", message: frase });
+    expect(ehEmailNaoConfirmado(erro)).toBe(true);
+    expect(ehEmailNaoConfirmado(new ApiError(403, "PROIBIDO", "x"))).toBe(false);
+  });
+
+  it("POST /auth/reenviar-confirmacao (202) com o e-mail; devolve a frase", async () => {
+    responder(202, { message: "Se esse e-mail estiver esperando confirmação, o link chega em instantes." });
+    await expect(reenviarConfirmacao("ana@email.com")).resolves.toEqual({
+      message: "Se esse e-mail estiver esperando confirmação, o link chega em instantes.",
+    });
+    expect(chamadas[0]).toMatchObject({
+      url: `${API_URL}/auth/reenviar-confirmacao`,
+      metodo: "POST",
+      corpo: { email: "ana@email.com" },
+    });
   });
 
   it("409 vira ApiError CONFLITO com a frase da API", async () => {

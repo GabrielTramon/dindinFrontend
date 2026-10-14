@@ -78,6 +78,19 @@ describe("erroDoEmail", () => {
 });
 
 describe("errosDaApi", () => {
+  it("403 EMAIL_NAO_CONFIRMADO: a frase da API como erro geral, marcada pra tela oferecer o link de novo", () => {
+    const frase = "Falta confirmar seu e-mail. Abra o link que mandamos pra ana@email.com — a conta só passa a valer depois disso.";
+    expect(errosDaApi(new ApiError(403, "EMAIL_NAO_CONFIRMADO", frase), ["email", "senha"])).toEqual({
+      campos: {},
+      geral: frase,
+      conflito: false,
+      naoConfirmado: true,
+    });
+    expect(errosDaApi(new ApiError(401, "NAO_AUTENTICADO", "E-mail ou senha incorretos."), ["email", "senha"])).not.toHaveProperty(
+      "naoConfirmado",
+    );
+  });
+
   it("VALIDACAO com details vai pro campo certo; e-mail ganha a nossa frase", () => {
     const erro = new ApiError(400, "VALIDACAO", "Dados inválidos", {
       email: "Informe um e-mail válido",

@@ -5,8 +5,8 @@ import { PageTransition } from "@/components/motion/page-transition";
 import { ToastProvider } from "@/components/ui/toast";
 
 /*
-  /criar-conta — e-mail e senha; a pessoa já entra e volta pro retorno. A
-  página só monta a moldura; os estados moram no <CriarConta /> (cliente).
+  /criar-conta — e-mail e senha; a conta só passa a valer pelo link do e-mail
+  (que entra e volta pro retorno). A página só monta a moldura; os estados moram no <CriarConta /> (cliente).
   Fora de /plano: monta o próprio ToastProvider. noindex.
 */
 

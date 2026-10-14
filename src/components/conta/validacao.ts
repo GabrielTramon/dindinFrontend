@@ -1,4 +1,4 @@
-import { ApiError, MENSAGEM_REDE } from "@/lib/api";
+import { ApiError, ehEmailNaoConfirmado, MENSAGEM_REDE } from "@/lib/api";
 
 /*
   Validação dos formulários de conta, sem React (tem teste: validacao.test.ts).
@@ -76,6 +76,8 @@ export interface ErrosDaApi {
   geral: string | null;
   /** 409 do cadastro: já existe conta com esse e-mail (a frase vai no campo do e-mail) */
   conflito: boolean;
+  /** 403 do entrar: a senha confere, mas o e-mail ainda não foi confirmado (a tela oferece o link de novo) */
+  naoConfirmado?: true;
 }
 
 /* a API pode chamar a senha nova de "senha" numa rota e de "senhaNova" em outra: aceita as duas */
@@ -93,6 +95,9 @@ const APELIDOS: Record<CampoConta, readonly string[]> = {
  * O resto é frase geral.
  */
 export function errosDaApi(erro: unknown, campos: readonly CampoConta[]): ErrosDaApi {
+  if (ehEmailNaoConfirmado(erro)) {
+    return { campos: {}, geral: mensagemDeErro(erro), conflito: false, naoConfirmado: true };
+  }
   if (erro instanceof ApiError) {
     if (erro.code === "CONFLITO" && campos.includes("email")) {
       return { campos: { email: erro.message }, geral: null, conflito: true };

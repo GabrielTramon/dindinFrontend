@@ -108,7 +108,7 @@ export function fraseDeEntrada(entrada: { email: string; motivo?: MotivoRetorno;
     case "criou":
       return "Conta criada. Mandamos um link pra confirmar seu e-mail.";
     case "confirmou":
-      return `E-mail confirmado. Você entrou como ${entrada.email}.`;
+      return `E-mail confirmado: sua conta está pronta. Você entrou como ${entrada.email}.`;
     case "redefiniu":
       return `Senha nova salva. Você entrou como ${entrada.email}.`;
     default:

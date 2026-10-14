@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
 import { ctaClasses } from "@/components/layout/cta-link";
 import { TextField } from "@/components/ui/text-field";
-import { cadastrar, entrar, type SessaoApi } from "@/lib/api";
+import { cadastrar, entrar, type CadastroPendenteApi, type SessaoApi } from "@/lib/api";
 import { guardarRetorno, type MotivoRetorno } from "@/lib/sessao";
 import { cn } from "@/lib/utils";
 import { CampoSenha } from "./campo-senha";
 import { lembrarEmail } from "./comum";
+import { ReenviarConfirmacao } from "./confirmar-email";
 import {
   DICA_SENHA,
   erroDaSenhaDigitada,
@@ -25,10 +26,16 @@ import {
   nas páginas) porque aparecem em três lugares: /criar-conta e /entrar, a
   /conta sem sessão e as duas abas da gaveta do PDF, sem sair da tela.
 
-  O formulário só fala com a API e entrega a sessão pro dono da tela
-  (`onSucesso`): a página grava e navega, a gaveta grava e segue pro PDF, a
-  /conta grava e fica. `onSucesso` devolve false quando não deu pra gravar
-  (localStorage bloqueado), e o formulário diz isso em vez de fingir que entrou.
+  O formulário só fala com a API e entrega o resultado pro dono da tela. O
+  Entrar entrega a sessão (`onSucesso`): a página grava e navega, a gaveta
+  grava e segue pro PDF, a /conta grava e fica. `onSucesso` devolve false quando
+  não deu pra gravar (localStorage bloqueado), e o formulário diz isso em vez de
+  fingir que entrou. O Criar conta NÃO entrega sessão: a conta só passa a valer
+  pelo link do e-mail, e ele avisa o dono da tela que o link foi
+  (`onLinkEnviado`), pra ela mostrar o "Confira seu e-mail".
+
+  - Entrar antes de confirmar o e-mail (403 EMAIL_NAO_CONFIRMADO): a frase da
+    API e o botão "Mandar o link de novo" (ReenviarConfirmacao).
 
   - Validação no cliente com as regras e frases do servidor (./validacao);
     erro de campo da API (details) cai no campo certo.
@@ -139,14 +146,12 @@ function BotaoEnviar({ enviando, rotulo, rotuloEnviando }: { enviando: boolean; 
 
 /* ---------- estado comum ---------- */
 
-interface FormContaProps {
+interface FormContaBase {
   /** prefixo dos ids; um por tela */
   id: string;
   emailInicial?: string;
   /** a gaveta guarda o e-mail pra levar de uma aba pra outra */
   onEmailChange?: (email: string) => void;
-  /** grava a sessão e segue; false = não deu pra gravar */
-  onSucesso: (sessao: SessaoApi) => boolean;
   /** a gaveta foca o e-mail ao abrir (ou a senha, quando o e-mail já vem preenchido) */
   emailRef?: RefObject<HTMLInputElement | null>;
   senhaRef?: RefObject<HTMLInputElement | null>;
@@ -157,7 +162,12 @@ interface FormContaProps {
   className?: string;
 }
 
-function useFormConta({ emailInicial, onEmailChange, emailRef, senhaRef }: FormContaProps) {
+interface FormContaProps extends FormContaBase {
+  /** grava a sessão e segue; false = não deu pra gravar */
+  onSucesso: (sessao: SessaoApi) => boolean;
+}
+
+function useFormConta({ emailInicial, onEmailChange, emailRef, senhaRef }: FormContaBase) {
   const [email, setEmail] = useState(emailInicial ?? "");
   const [senha, setSenha] = useState("");
   const [erros, setErros] = useState<Erros>({});
@@ -194,10 +204,10 @@ function useFormConta({ emailInicial, onEmailChange, emailRef, senhaRef }: FormC
       if (geral) setGeral(null);
     },
     /** valida, chama a API e distribui os erros; devolve os erros da API (null se não falhou lá) */
-    async enviar(
+    async enviar<T>(
       locais: Partial<Record<CampoConta, string | null>>,
-      chamada: () => Promise<SessaoApi>,
-      onSucesso: (sessao: SessaoApi) => boolean,
+      chamada: () => Promise<T>,
+      onSucesso: (resultado: T) => boolean,
     ): Promise<ErrosDaApi | null> {
       if (enviandoRef.current) return null;
       const ordem = ["email", "senha"] as const;
@@ -213,8 +223,8 @@ function useFormConta({ emailInicial, onEmailChange, emailRef, senhaRef }: FormC
       setErros({});
       setGeral(null);
       try {
-        const sessao = await chamada();
-        if (!onSucesso(sessao)) setGeral(SESSAO_NAO_GRAVADA);
+        const resultado = await chamada();
+        if (!onSucesso(resultado)) setGeral(SESSAO_NAO_GRAVADA);
         return null;
       } catch (falha) {
         const resultado = errosDaApi(falha, ordem);
@@ -236,23 +246,30 @@ export function FormEntrar(props: FormContaProps) {
   const { id, onSucesso, retorno, comLinkDeTroca = false, className } = props;
   const form = useFormConta(props);
   const idGeral = `${id}-erro`;
+  /** o e-mail da conta que acertou a senha mas ainda não confirmou: é pra ele que o link vai de novo */
+  const [naoConfirmado, setNaoConfirmado] = useState<string | null>(null);
 
-  function enviar(evento: FormEvent<HTMLFormElement>) {
+  async function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     const email = form.email.trim();
-    void form.enviar(
+    setNaoConfirmado(null);
+    const falha = await form.enviar(
       { email: erroDoEmail(email), senha: erroDaSenhaDigitada(form.senha) },
       () => entrar(email, form.senha),
       onSucesso,
     );
+    if (falha?.naoConfirmado) setNaoConfirmado(email);
   }
 
   return (
-    <form method="post" noValidate onSubmit={enviar} className={cn("grid gap-5", className)}>
+    <form method="post" noValidate onSubmit={(e) => void enviar(e)} className={cn("grid gap-5", className)}>
       <CampoEmail
         id={`${id}-email`}
         value={form.email}
-        onChange={form.mudarEmail}
+        onChange={(valor) => {
+          form.mudarEmail(valor);
+          if (naoConfirmado) setNaoConfirmado(null);
+        }}
         erro={form.erros.email}
         inputRef={form.emailCampo}
       />
@@ -278,6 +295,8 @@ export function FormEntrar(props: FormContaProps) {
         </Link>
       </div>
       {form.geral && <ErroGeral id={idGeral}>{form.geral}</ErroGeral>}
+      {/* a chave remonta o botão (e zera a espera) se ela tentar com outro e-mail pendente */}
+      {naoConfirmado && form.geral && <ReenviarConfirmacao key={naoConfirmado} email={naoConfirmado} />}
       <BotaoEnviar enviando={form.enviando} rotulo="Entrar" rotuloEnviando="Entrando…" />
       {comLinkDeTroca && (
         <p className="text-sm text-pretty text-ink-2">
@@ -298,7 +317,12 @@ export function FormEntrar(props: FormContaProps) {
 
 /* ---------- Criar conta ---------- */
 
-interface FormCriarContaProps extends FormContaProps {
+interface FormCriarContaProps extends FormContaBase {
+  /**
+   * a conta foi gravada e o "Confirme seu e-mail" saiu pra `email` (o que a API
+   * normalizou). Sem sessão: quem chama mostra o "Confira seu e-mail".
+   */
+  onLinkEnviado: (email: string) => void;
   /** 409 na gaveta: troca pra aba "Já tenho conta" com o e-mail; sem ele, link pro /entrar */
   onJaTemConta?: (email: string) => void;
   /** a linha pequena embaixo do botão; null esconde */
@@ -308,11 +332,11 @@ interface FormCriarContaProps extends FormContaProps {
 export function FormCriarConta(props: FormCriarContaProps) {
   const {
     id,
-    onSucesso,
+    onLinkEnviado,
     retorno,
     comLinkDeTroca = false,
     onJaTemConta,
-    nota = "Serve pra baixar o PDF do plano. Guardamos só o e-mail.",
+    nota = "Serve pra baixar o PDF do plano. Guardamos só o e-mail, e a conta passa a valer quando você confirmar pelo link que vai pra ele.",
     className,
   } = props;
   const form = useFormConta(props);
@@ -326,7 +350,10 @@ export function FormCriarConta(props: FormCriarContaProps) {
     const falha = await form.enviar(
       { email: erroDoEmail(email), senha: erroDaSenhaNova(form.senha) },
       () => cadastrar(email, form.senha),
-      onSucesso,
+      (resposta: CadastroPendenteApi) => {
+        onLinkEnviado(resposta.email);
+        return true;
+      },
     );
     if (falha?.conflito) setConflito(true);
   }

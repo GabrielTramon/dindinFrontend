@@ -1,8 +1,12 @@
 /*
   Cliente da API do dindin (dindinBackend). Só a parte de conta: criar conta e
-  entrar (e-mail + senha), esqueci/redefinir a senha, confirmar o e-mail, ler a
-  conta, trocar a senha, exportar e excluir. O plano NÃO passa por aqui —
-  continua no navegador.
+  entrar (e-mail + senha), esqueci/redefinir a senha, confirmar o e-mail (e
+  mandar o link de novo), ler a conta, trocar a senha, exportar e excluir. O
+  plano NÃO passa por aqui — continua no navegador.
+
+  A conta só passa a valer com o e-mail confirmado: o cadastro não devolve
+  sessão (manda o link), e entrar antes de confirmar volta 403
+  EMAIL_NAO_CONFIRMADO (ehEmailNaoConfirmado).
 
   Todo erro vira ApiError { status, code, message, details? }:
   - resposta da API: o `code` estável e a `message` pt-BR que ela manda (já
@@ -64,7 +68,23 @@ export interface ContaApi {
   temSenha: boolean;
 }
 
-/** POST /auth/cadastrar · /auth/entrar · /auth/redefinir-senha · /auth/verificar */
+/** POST /auth/cadastrar (202): a conta espera a confirmação; nenhuma sessão ainda */
+export interface CadastroPendenteApi {
+  /** o e-mail já normalizado pela API (é pra ele que o link foi) */
+  email: string;
+  /** a frase pronta pra tela ("Mandamos um link pra …") */
+  message: string;
+}
+
+/** O `code` do 403 de quem acertou a senha mas ainda não confirmou o e-mail. */
+export const CODIGO_EMAIL_NAO_CONFIRMADO = "EMAIL_NAO_CONFIRMADO";
+
+/** O erro é "falta confirmar o e-mail"? É ele que faz a tela oferecer o link de novo. */
+export function ehEmailNaoConfirmado(erro: unknown): boolean {
+  return erro instanceof ApiError && erro.code === CODIGO_EMAIL_NAO_CONFIRMADO;
+}
+
+/** POST /auth/entrar · /auth/redefinir-senha · /auth/verificar */
 export interface SessaoApi {
   accessToken: string;
   /** ISO 8601 */
@@ -186,21 +206,36 @@ function ehMensagem(valor: unknown): valor is { message: string } {
   return ehObjeto(valor) && typeof valor.message === "string";
 }
 
+function ehCadastroPendente(valor: unknown): valor is CadastroPendenteApi {
+  return ehMensagem(valor) && typeof (valor as { email?: unknown }).email === "string";
+}
+
 /* ---------- rotas ---------- */
 
 /**
- * POST /auth/cadastrar (201). Cria a conta e já devolve a sessão: a pessoa entra
- * na hora, sem esperar e-mail (o "Confirme seu e-mail" vai junto, mas não trava
- * nada). 409 (CONFLITO) = já existe conta com esse e-mail.
+ * POST /auth/cadastrar (202). Grava a conta e manda o "Confirme seu e-mail":
+ * SEM sessão — a conta só passa a valer quando a pessoa abrir o link (que já
+ * entra). 409 (CONFLITO) = já existe conta confirmada com esse e-mail. De novo
+ * pra um e-mail que ainda espera a confirmação, a senha nova vale e um link novo vai.
  */
-export async function cadastrar(email: string, senha: string): Promise<SessaoApi> {
+export async function cadastrar(email: string, senha: string): Promise<CadastroPendenteApi> {
   const resposta = await chamar({ metodo: "POST", caminho: "/auth/cadastrar", corpo: { email, senha } });
-  return lerJson(resposta, ehSessao);
+  return lerJson(resposta, ehCadastroPendente);
+}
+
+/**
+ * POST /auth/reenviar-confirmacao (202). O "Confirme seu e-mail" de novo. A
+ * frase é a mesma exista a conta ou não (e dentro do intervalo de 60 s também).
+ */
+export async function reenviarConfirmacao(email: string): Promise<{ message: string }> {
+  const resposta = await chamar({ metodo: "POST", caminho: "/auth/reenviar-confirmacao", corpo: { email } });
+  return lerJson(resposta, ehMensagem);
 }
 
 /**
  * POST /auth/entrar (200). 401 "E-mail ou senha incorretos." é a MESMA resposta
  * pra e-mail que não existe, senha errada e conta sem senha: não revela quem tem conta.
+ * Senha certa de conta que ainda não confirmou o e-mail: 403 EMAIL_NAO_CONFIRMADO.
  */
 export async function entrar(email: string, senha: string): Promise<SessaoApi> {
   const resposta = await chamar({ metodo: "POST", caminho: "/auth/entrar", corpo: { email, senha } });
@@ -227,6 +262,7 @@ export async function redefinirSenha(token: string, senha: string): Promise<Sess
 
 /**
  * POST /auth/verificar — o link "Confirme seu e-mail" que o cadastro manda.
+ * Confirma e devolve a sessão: é aqui que a conta passa a valer.
  * O token é de uso único: chamar UMA vez por token.
  */
 export async function verificarToken(token: string): Promise<SessaoApi> {
